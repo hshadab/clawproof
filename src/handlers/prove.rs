@@ -281,10 +281,10 @@ pub async fn run_single_prove(
     let raw_output: Vec<i32> = tokio::task::spawn_blocking(move || {
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             let model_instance = model(&inference_path);
-            let result = model_instance.forward(&[inference_tensor])?;
-            Ok::<_, Box<dyn std::error::Error + Send + Sync>>(
-                result.outputs[0].data().to_vec(),
-            )
+            let result = model_instance
+                .forward(&[inference_tensor])
+                .map_err(|e| format!("{}", e))?;
+            Ok::<_, String>(result.outputs[0].data().to_vec())
         }))
     })
     .await

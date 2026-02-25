@@ -17,7 +17,7 @@ pub struct UpdateResponse {
 /// Requires `Authorization: Bearer <ADMIN_SECRET>` header.
 /// Body is the raw HTML string.
 pub async fn update_playground(
-    State(state): State<AppState>,
+    State(_state): State<AppState>,
     headers: HeaderMap,
     body: String,
 ) -> Result<Json<UpdateResponse>, StatusCode> {
