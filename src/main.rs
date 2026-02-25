@@ -253,10 +253,10 @@ async fn main() -> anyhow::Result<()> {
             "/prove/batch",
             post(handlers::batch::batch_prove).layer(batch_rate_limit),
         )
-        .route("/receipt/{id}", get(handlers::receipt::get_receipt))
+        .route("/receipt/:id", get(handlers::receipt::get_receipt))
         .route("/verify", post(handlers::verify::verify))
         .route("/metrics", get(handlers::metrics::metrics))
-        .route("/badge/{receipt_id}", get(handlers::badge::badge))
+        .route("/badge/:receipt_id", get(handlers::badge::badge))
         .route(
             "/models/upload",
             post(handlers::upload::upload_model).layer(upload_rate_limit),
