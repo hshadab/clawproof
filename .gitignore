@@ -2,3 +2,8 @@ target/
 .env
 *.swp
 *.swo
+
+data/
+sdks/js/node_modules/
+__pycache__/
+*.pyc
