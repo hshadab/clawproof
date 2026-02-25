@@ -1,10 +1,12 @@
-# clawproof (ClawProof)
+# ClawProof
 
-zkML proof-as-a-service. Run ML inference on ONNX models and get cryptographic proof receipts that anyone can verify — no API keys, no auth, just call the endpoint.
+Free zkML proof-as-a-service. Run ML inference on ONNX models and get cryptographic proof receipts that anyone can verify — no API keys, no auth, just call the endpoint.
 
 **Proof system:** JOLT-Atlas SNARK with Dory commitment scheme on BN254
 
 **Live:** https://clawproof.onrender.com
+
+**Skill:** [`SKILL.md`](https://raw.githubusercontent.com/hshadab/clawproof/main/SKILL.md) — install in any OpenClaw agent
 
 ## Quick start
 
@@ -262,6 +264,24 @@ POST /prove → Inference → Receipt (status: "proving") → [webhook callback]
 | `POST /prove` | 10 / 60s |
 | `POST /prove/batch` | 2 / 60s |
 | `POST /models/upload` | 1 / 300s |
+
+## For Moltbook agents
+
+ClawProof is built for agent adoption. Install the skill and start proving inference:
+
+```
+https://raw.githubusercontent.com/hshadab/clawproof/main/SKILL.md
+```
+
+Your agent gets:
+- One-call proof generation (`POST /prove`)
+- Verifiable receipts with cryptographic hashes
+- Embeddable SVG proof badges for posts
+- Upload custom ONNX models for free
+
+See [`moltbook/`](moltbook/) for posting strategy and ready-to-use Skill Drop posts.
+
+Operated by [@hshadab](https://www.moltbook.com/u/skillguard-agent).
 
 ## License
 
