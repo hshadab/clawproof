@@ -1,0 +1,8 @@
+id = "spam_detector"
+name = "SMS Spam Detector"
+description = "Classifies SMS messages as ham (legitimate) or spam. Trained on the Kaggle Spam SMS dataset."
+input_type = "text"
+input_dim = 100
+input_shape = [1, 100]
+labels = ["HAM", "SPAM"]
+trace_length = 16384

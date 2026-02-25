@@ -6,6 +6,7 @@ pub mod metrics;
 pub mod models;
 pub mod openapi;
 pub mod prove;
+pub mod prove_model;
 pub mod receipt;
 pub mod upload;
 pub mod verify;

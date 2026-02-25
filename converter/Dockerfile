@@ -37,9 +37,10 @@ RUN useradd -r -s /sbin/nologin converter \
     && chown -R converter:converter /app
 USER converter
 
-EXPOSE 8001
+ENV PORT=8001
+EXPOSE ${PORT}
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')" || exit 1
+    CMD python -c "import urllib.request,os; urllib.request.urlopen(f'http://localhost:{os.environ.get(\"PORT\",8001)}/health')" || exit 1
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD uvicorn main:app --host 0.0.0.0 --port ${PORT}

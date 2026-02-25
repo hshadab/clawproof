@@ -1,0 +1,8 @@
+id = "sentiment"
+name = "Sentiment Analysis"
+description = "Classifies short text as positive or negative sentiment. Tiny model ideal for quick proofs."
+input_type = "text"
+input_dim = 5
+input_shape = [1, 5]
+labels = ["NEGATIVE", "POSITIVE"]
+trace_length = 4096

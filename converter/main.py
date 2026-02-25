@@ -8,7 +8,7 @@ The main ClawProof Rust server proxies multipart uploads to this service
 when CONVERTER_URL is configured. See src/handlers/convert.rs.
 
 Usage:
-    uvicorn main:app --host 0.0.0.0 --port 8001
+    uvicorn main:app --host 0.0.0.0 --port ${PORT:-8001}
 """
 
 from __future__ import annotations

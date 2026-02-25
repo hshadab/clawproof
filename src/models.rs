@@ -74,37 +74,10 @@ pub struct ModelRegistry {
 
 impl ModelRegistry {
     pub fn new() -> Self {
-        let mut registry = Self {
+        Self {
             models: HashMap::new(),
             order: Vec::new(),
-        };
-
-        // Register hardcoded defaults
-        registry.register(ModelDescriptor {
-            id: "authorization".to_string(),
-            name: "Transaction Authorization".to_string(),
-            description: "Determines whether a transaction should be authorized or denied based on budget, trust, amount, and other features.".to_string(),
-            input_type: InputType::StructuredFields,
-            input_dim: 64,
-            input_shape: vec![1, 64],
-            labels: vec![
-                "AUTHORIZED".to_string(),
-                "DENIED".to_string(),
-            ],
-            trace_length: 1 << 14,
-            fields: Some(vec![
-                FieldSchema { name: "budget".to_string(), description: "Budget level".to_string(), min: 0, max: 15 },
-                FieldSchema { name: "trust".to_string(), description: "Trust score".to_string(), min: 0, max: 7 },
-                FieldSchema { name: "amount".to_string(), description: "Transaction amount".to_string(), min: 0, max: 15 },
-                FieldSchema { name: "category".to_string(), description: "Merchant category".to_string(), min: 0, max: 3 },
-                FieldSchema { name: "velocity".to_string(), description: "Transaction velocity".to_string(), min: 0, max: 7 },
-                FieldSchema { name: "day".to_string(), description: "Day of week".to_string(), min: 0, max: 7 },
-                FieldSchema { name: "time".to_string(), description: "Time of day".to_string(), min: 0, max: 3 },
-                FieldSchema { name: "risk".to_string(), description: "Risk level".to_string(), min: 0, max: 0 },
-            ]),
-        });
-
-        registry
+        }
     }
 
     pub fn register(&mut self, model: ModelDescriptor) {

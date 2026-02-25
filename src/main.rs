@@ -59,6 +59,9 @@ async fn main() -> anyhow::Result<()> {
 
     let mut registry = ModelRegistry::new();
 
+    // Scan built-in models directory
+    registry.scan_directory(&config.models_dir);
+
     // Scan uploaded models directory for previously uploaded models
     registry.scan_directory(&config.uploaded_models_dir);
 
@@ -66,7 +69,15 @@ async fn main() -> anyhow::Result<()> {
     info!("[clawproof] Loading vocabularies...");
     let mut vocabs = HashMap::new();
     for model_desc in registry.list() {
-        let vocab_path = config.models_dir.join(&model_desc.id).join("vocab.json");
+        // Check both built-in and uploaded model directories for vocab
+        let vocab_path = {
+            let builtin = config.models_dir.join(&model_desc.id).join("vocab.json");
+            if builtin.exists() {
+                builtin
+            } else {
+                config.uploaded_models_dir.join(&model_desc.id).join("vocab.json")
+            }
+        };
         match &model_desc.input_type {
             InputType::Text => {
                 info!("[clawproof] Loading TF-IDF vocab for {}", model_desc.id);
@@ -223,6 +234,13 @@ async fn main() -> anyhow::Result<()> {
         .layer(BufferLayer::new(4))
         .layer(RateLimitLayer::new(1, Duration::from_secs(300)));
 
+    let prove_model_rate_limit = ServiceBuilder::new()
+        .layer(HandleErrorLayer::new(|_: tower::BoxError| async {
+            StatusCode::TOO_MANY_REQUESTS
+        }))
+        .layer(BufferLayer::new(4))
+        .layer(RateLimitLayer::new(1, Duration::from_secs(300)));
+
     let app = Router::new()
         .route("/", get(playground))
         .route("/health", get(handlers::health::health))
@@ -242,6 +260,10 @@ async fn main() -> anyhow::Result<()> {
         .route(
             "/models/upload",
             post(handlers::upload::upload_model).layer(upload_rate_limit),
+        )
+        .route(
+            "/prove/model",
+            post(handlers::prove_model::prove_model).layer(prove_model_rate_limit),
         )
         .route("/convert", post(handlers::convert::convert))
         .route("/openapi.json", get(handlers::openapi::openapi_spec))
