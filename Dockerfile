@@ -1,17 +1,17 @@
 # ClawProof ZKML Docker build
 #
+# Uses cargo-chef for dependency caching: if only src/ files change,
+# the expensive dependency compilation layer is reused from cache.
+#
 # Build:
 #   docker build -t clawproof .
 #
 # Run:
 #   docker run -p 3000:3000 clawproof
 
-# --- Builder stage ---
-# Nightly required: arkworks-algebra dev/twist-shout branch uses const generics
-# features that need Rust >= 1.95 nightly.
-FROM debian:bookworm AS builder
+# --- Chef stage: install cargo-chef ---
+FROM debian:bookworm AS chef
 
-# Install build dependencies and rustup
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     pkg-config \
@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install pinned nightly toolchain via rustup
+# Nightly required: arkworks-algebra dev/twist-shout branch uses const generics
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
     PATH=/usr/local/cargo/bin:$PATH
@@ -28,26 +28,32 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
     sh -s -- -y --default-toolchain nightly-2026-01-29 && \
     rustc --version
 
+RUN cargo install cargo-chef --locked
+
 WORKDIR /build
+
+# --- Planner stage: compute the dependency recipe ---
+FROM chef AS planner
+COPY Cargo.toml Cargo.lock ./
+COPY src/ src/
+COPY static/ static/
+RUN cargo chef prepare --recipe-path recipe.json
+
+# --- Builder stage: compile deps (cached), then source ---
+FROM chef AS builder
 
 # Limit parallel jobs to avoid OOM with ZKML deps
 ENV CARGO_BUILD_JOBS=1
 
-# Copy manifest + lockfile first for layer caching
+# Cook dependencies (only re-runs when Cargo.toml/Cargo.lock change)
+COPY --from=planner /build/recipe.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json
+
+# Now copy source and build (only recompiles crate code)
 COPY Cargo.toml Cargo.lock ./
-
-# Create dummy source so cargo can fetch & compile dependencies first (layer cache)
-RUN mkdir -p src \
-    && echo 'fn main(){}' > src/main.rs \
-    && cargo build --release --bin clawproof || true \
-    && rm -rf src
-
-# Copy Rust source only (NOT models — those go in a later layer
-# so model changes don't trigger a full Rust recompile)
 COPY src/ src/
-
-# Touch main.rs to force cargo to recompile the crate
-RUN touch src/main.rs && cargo build --release --bin clawproof
+COPY static/ static/
+RUN cargo build --release --bin clawproof
 
 # --- Python converter stage ---
 FROM python:3.11-slim AS converter-builder
@@ -83,21 +89,28 @@ RUN strip /app/clawproof
 COPY dory_srs_22_variables.srs /app/dory_srs_22_variables.srs
 COPY dory_srs_28_variables.srs /app/dory_srs_28_variables.srs
 
-# Copy model files last — changes here only rebuild from this layer onward
+# Copy static assets (HTML/CSS/JS — editable without recompiling Rust)
+COPY static/ /app/static/
+
+# Copy model files — changes here only rebuild from this layer onward
 COPY models/ /app/models/
 
 # Copy Python converter
 COPY --from=converter-builder /converter /app/converter
 COPY --from=converter-builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/dist-packages
 
-# Create data directory for SQLite and uploaded models
-RUN mkdir -p /app/data /app/data/models
+# Create data directory for SQLite, uploaded models, and live static overrides
+RUN mkdir -p /app/data /app/data/models /app/data/static
 
-# Create entrypoint script that starts both processes
+# Create entrypoint script
+# - Seeds static files to persistent disk (only if not already present)
+# - Starts the Rust server
 RUN printf '#!/bin/sh\n\
-# Start Python converter sidecar in background (if available)\n\
-if [ -f /app/converter/main.py ]; then\n\
-    python3 /app/converter/main.py &\n\
+# Seed static files to persistent disk on first boot.\n\
+# To update the UI without redeploying, edit /app/data/static/playground.html\n\
+# on the persistent disk directly.\n\
+if [ ! -f /app/data/static/playground.html ]; then\n\
+    cp /app/static/* /app/data/static/ 2>/dev/null || true\n\
 fi\n\
 # Start Rust server\n\
 exec /app/clawproof\n' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
@@ -107,6 +120,7 @@ RUN chown -R clawproof:clawproof /app
 # Render sets PORT=10000 for web services
 ENV PORT=10000
 ENV MODELS_DIR=/app/models
+ENV STATIC_DIR=/app/data/static
 ENV DATABASE_PATH=/app/data/clawproof.db
 ENV UPLOADED_MODELS_DIR=/app/data/models
 ENV CONVERTER_URL=http://127.0.0.1:8001

@@ -1,4 +1,5 @@
 services:
+  # --- Main Rust API ---
   - type: web
     name: clawproof
     runtime: docker
@@ -7,6 +8,20 @@ services:
     plan: pro plus
     region: oregon
     healthCheckPath: /health
+    buildFilter:
+      paths:
+        - src/**
+        - Cargo.toml
+        - Cargo.lock
+        - Dockerfile
+        - models/**
+        - dory_srs_*.srs
+      ignoredPaths:
+        - static/**
+        - converter/**
+        - sdks/**
+        - moltbook/**
+        - "*.md"
     disk:
       name: clawproof-data
       mountPath: /app/data
@@ -20,7 +35,28 @@ services:
         value: /app/data/clawproof.db
       - key: UPLOADED_MODELS_DIR
         value: /app/data/models
+      - key: STATIC_DIR
+        value: /app/data/static
       - key: CONVERTER_URL
-        value: http://127.0.0.1:8001
+        value: https://clawproof-converter.onrender.com
       - key: CORS_ORIGINS
         value: https://clawproof.onrender.com
+
+  # --- Python ONNX converter sidecar ---
+  - type: web
+    name: clawproof-converter
+    runtime: docker
+    repo: https://github.com/hshadab/clawproof.git
+    branch: main
+    rootDir: converter
+    plan: starter
+    region: oregon
+    healthCheckPath: /health
+    buildFilter:
+      paths:
+        - converter/**
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: LOG_LEVEL
+        value: info

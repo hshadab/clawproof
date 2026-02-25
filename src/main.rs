@@ -9,7 +9,7 @@ mod state;
 mod templates;
 
 use axum::response::Html;
-use axum::routing::{get, post};
+use axum::routing::{get, post, put};
 use axum::Router;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -267,6 +267,7 @@ async fn main() -> anyhow::Result<()> {
         )
         .route("/convert", post(handlers::convert::convert))
         .route("/openapi.json", get(handlers::openapi::openapi_spec))
+        .route("/admin/static/playground", put(handlers::static_update::update_playground))
         .layer(cors)
         .with_state(state);
 

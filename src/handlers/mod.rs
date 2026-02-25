@@ -8,5 +8,6 @@ pub mod openapi;
 pub mod prove;
 pub mod prove_model;
 pub mod receipt;
+pub mod static_update;
 pub mod upload;
 pub mod verify;
