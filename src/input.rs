@@ -12,6 +12,9 @@ pub type TfIdfVocab = HashMap<String, (usize, i32)>;
 /// One-hot vocab: feature_key -> index
 pub type OneHotVocab = HashMap<String, usize>;
 
+/// Token-index vocab: word -> embedding_index (for Gather/embedding models)
+pub type TokenIndexVocab = HashMap<String, i32>;
+
 pub fn load_tfidf_vocab(path: &Path) -> anyhow::Result<TfIdfVocab> {
     let contents = std::fs::read_to_string(path)?;
     let json: Value = serde_json::from_str(&contents)?;
@@ -45,6 +48,30 @@ pub fn load_onehot_vocab(path: &Path) -> anyhow::Result<OneHotVocab> {
     }
 
     Ok(vocab)
+}
+
+pub fn load_token_index_vocab(path: &Path) -> anyhow::Result<TokenIndexVocab> {
+    let contents = std::fs::read_to_string(path)?;
+    let map: HashMap<String, i32> = serde_json::from_str(&contents)?;
+    Ok(map)
+}
+
+/// Convert text to a fixed-length vector of token indices for embedding-lookup models.
+/// Unknown tokens are mapped to index 0 (padding). The vector is padded/truncated to `dim`.
+pub fn build_token_index_vector(text: &str, vocab: &TokenIndexVocab, dim: usize) -> Vec<i32> {
+    let mut vec = vec![0i32; dim];
+
+    for (i, cap) in TOKENIZER.captures_iter(text).enumerate() {
+        if i >= dim {
+            break;
+        }
+        let token = cap.get(0).unwrap().as_str().to_lowercase();
+        if let Some(&idx) = vocab.get(&token) {
+            vec[i] = idx;
+        }
+    }
+
+    vec
 }
 
 pub fn build_tfidf_vector(text: &str, vocab: &TfIdfVocab, dim: usize) -> Vec<i32> {

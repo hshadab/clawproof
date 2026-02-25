@@ -29,7 +29,7 @@ use onnx_tracer::model;
 use zkml_jolt_core::jolt::JoltSNARK;
 
 use crate::config::Config;
-use crate::input::{load_onehot_vocab, load_tfidf_vocab};
+use crate::input::{load_onehot_vocab, load_tfidf_vocab, load_token_index_vocab};
 use crate::models::{InputType, ModelRegistry};
 use crate::receipt::ReceiptStore;
 use crate::state::{AppState, PreprocessingCache, VocabData};
@@ -80,15 +80,23 @@ async fn main() -> anyhow::Result<()> {
         };
         match &model_desc.input_type {
             InputType::Text => {
-                info!("[clawproof] Loading TF-IDF vocab for {}", model_desc.id);
+                info!("[clawproof] Loading text vocab for {}", model_desc.id);
+                // Try TF-IDF format first ({"word": {"index": N, "idf": F}})
+                // Fall back to token-index format ({"word": N})
                 match load_tfidf_vocab(&vocab_path) {
-                    Ok(vocab) => {
-                        info!("[clawproof]   {} entries loaded", vocab.len());
+                    Ok(vocab) if !vocab.is_empty() => {
+                        info!("[clawproof]   {} TF-IDF entries loaded", vocab.len());
                         vocabs.insert(model_desc.id.clone(), VocabData::TfIdf(vocab));
                     }
-                    Err(e) => {
-                        tracing::warn!("[clawproof] Failed to load vocab for {}: {:?}", model_desc.id, e);
-                    }
+                    _ => match load_token_index_vocab(&vocab_path) {
+                        Ok(vocab) if !vocab.is_empty() => {
+                            info!("[clawproof]   {} token-index entries loaded", vocab.len());
+                            vocabs.insert(model_desc.id.clone(), VocabData::TokenIndex(vocab));
+                        }
+                        _ => {
+                            tracing::warn!("[clawproof] Failed to load vocab for {}", model_desc.id);
+                        }
+                    },
                 }
             }
             InputType::StructuredFields => {

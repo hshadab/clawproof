@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use tracing::{error, info};
 
 use crate::crypto;
-use crate::input::{build_onehot_vector, build_tfidf_vector};
+use crate::input::{build_onehot_vector, build_tfidf_vector, build_token_index_vector};
 use crate::models::InputType;
 use crate::prover;
 use crate::receipt::{InferenceOutput, Receipt, ReceiptStatus};
@@ -137,6 +137,7 @@ pub async fn run_single_prove(
 
             match vocab {
                 VocabData::TfIdf(v) => build_tfidf_vector(text, v, model_desc.input_dim),
+                VocabData::TokenIndex(v) => build_token_index_vector(text, v, model_desc.input_dim),
                 _ => {
                     return Err((
                         StatusCode::INTERNAL_SERVER_ERROR,
@@ -273,20 +274,50 @@ pub async fn run_single_prove(
         }
     };
 
-    let model_instance = model(&model_path);
-    let result = model_instance
-        .forward(&[input_tensor.clone()])
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Inference failed: {:?}", e),
-                    hint: None,
-                }),
+    // Run inference in a blocking thread with panic protection to avoid
+    // taking down the server if the ONNX tracer panics.
+    let inference_path = model_path.clone();
+    let inference_tensor = input_tensor.clone();
+    let raw_output: Vec<i32> = tokio::task::spawn_blocking(move || {
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let model_instance = model(&inference_path);
+            let result = model_instance.forward(&[inference_tensor])?;
+            Ok::<_, Box<dyn std::error::Error + Send + Sync>>(
+                result.outputs[0].data().to_vec(),
             )
-        })?;
-
-    let raw_output: Vec<i32> = result.outputs[0].data().to_vec();
+        }))
+    })
+    .await
+    .map_err(|e| {
+        error!("[clawproof] Inference task failed: {:?}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: "Inference task failed".to_string(),
+                hint: None,
+            }),
+        )
+    })?
+    .map_err(|_| {
+        error!("[clawproof] Inference panicked for model {}", model_id);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: "Inference crashed — model may use unsupported operations".to_string(),
+                hint: Some("Try a simpler ONNX model or check supported ops".to_string()),
+            }),
+        )
+    })?
+    .map_err(|e| {
+        error!("[clawproof] Inference error for model {}: {:?}", model_id, e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: format!("Inference failed: {}", e),
+                hint: None,
+            }),
+        )
+    })?;
 
     // Determine prediction
     let (pred_idx, _max_val) = raw_output

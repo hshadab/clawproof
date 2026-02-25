@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::input::{OneHotVocab, TfIdfVocab};
+use crate::input::{OneHotVocab, TfIdfVocab, TokenIndexVocab};
 use crate::models::ModelRegistry;
 use crate::receipt::ReceiptStore;
 
@@ -25,6 +25,7 @@ unsafe impl Sync for PreprocessingCache {}
 pub enum VocabData {
     TfIdf(TfIdfVocab),
     OneHot(OneHotVocab),
+    TokenIndex(TokenIndexVocab),
 }
 
 #[derive(Clone)]
