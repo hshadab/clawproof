@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: clawproof
+    runtime: docker
+    repo: https://github.com/hshadab/clawproof.git
+    branch: main
+    plan: pro plus
+    region: oregon
+    healthCheckPath: /health
+    disk:
+      name: clawproof-data
+      mountPath: /app/data
+      sizeGB: 1
+    envVars:
+      - key: RUST_LOG
+        value: info
+      - key: BASE_URL
+        value: https://clawproof.onrender.com
+      - key: DATABASE_PATH
+        value: /app/data/clawproof.db
+      - key: UPLOADED_MODELS_DIR
+        value: /app/data/models
+      - key: CONVERTER_URL
+        value: http://127.0.0.1:8001
+      - key: CORS_ORIGINS
+        value: https://clawproof.onrender.com

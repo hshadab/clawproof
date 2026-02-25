@@ -1,0 +1,1511 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "ClawProof — zkML Proof-as-a-Service API",
+    "version": "0.1.0",
+    "description": "ClawProof generates cryptographic zero-knowledge proofs (zkML) of ML inference. Submit an input to a registered ONNX model, receive a JOLT SNARK proof receipt that any third party can verify. Use this API to prove that a specific model produced a specific output for a given input, without revealing model weights. Proof system: JOLT-Atlas SNARK with Dory/BN254 commitment scheme.",
+    "contact": {
+      "name": "ClawProof",
+      "url": "https://clawproof.onrender.com"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://clawproof.onrender.com",
+      "description": "Production server"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "healthCheck",
+        "summary": "Health check",
+        "description": "Returns the current health status of the ClawProof service including proof system info, how many models are loaded versus total registered, and whether the service is ready to accept proof requests. A service is ready when all registered models have completed SNARK preprocessing. Poll this endpoint after startup to know when proving is available.",
+        "tags": ["Status"],
+        "responses": {
+          "200": {
+            "description": "Service health information.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                },
+                "example": {
+                  "status": "ok",
+                  "version": "clawproof-v0.1.0",
+                  "proof_system": "JOLT-Atlas SNARK (Dory/BN254)",
+                  "models_loaded": 1,
+                  "models_total": 1,
+                  "ready": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/models": {
+      "get": {
+        "operationId": "listModels",
+        "summary": "List available ML models",
+        "description": "Returns an array of all registered model descriptors. Each descriptor includes the model ID (used in /prove), human-readable name, input type (text, structured_fields, or raw), expected input dimensions, output labels, and optional field schemas for structured input models. Use this to discover which models are available and what input format each expects.",
+        "tags": ["Models"],
+        "responses": {
+          "200": {
+            "description": "Array of model descriptors for every registered model.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModelDescriptor"
+                  }
+                },
+                "example": [
+                  {
+                    "id": "authorization",
+                    "name": "Transaction Authorization",
+                    "description": "Determines whether a transaction should be authorized or denied based on budget, trust, amount, and other features.",
+                    "input_type": "structured_fields",
+                    "input_dim": 64,
+                    "input_shape": [1, 64],
+                    "labels": ["AUTHORIZED", "DENIED"],
+                    "trace_length": 16384,
+                    "fields": [
+                      { "name": "budget", "description": "Budget level", "min": 0, "max": 15 },
+                      { "name": "trust", "description": "Trust score", "min": 0, "max": 7 },
+                      { "name": "amount", "description": "Transaction amount", "min": 0, "max": 15 },
+                      { "name": "category", "description": "Merchant category", "min": 0, "max": 3 },
+                      { "name": "velocity", "description": "Transaction velocity", "min": 0, "max": 7 },
+                      { "name": "day", "description": "Day of week", "min": 0, "max": 7 },
+                      { "name": "time", "description": "Time of day", "min": 0, "max": 3 },
+                      { "name": "risk", "description": "Risk level", "min": 0, "max": 0 }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/prove": {
+      "post": {
+        "operationId": "prove",
+        "summary": "Submit input for zkML proof generation",
+        "description": "Runs ML inference on the specified model with the provided input, then spawns an asynchronous JOLT SNARK proof generation job. Returns immediately with a receipt ID, the model output (predicted class, label, confidence), and status 'proving'. The proof runs in the background; poll GET /receipt/{id} or provide a webhook_url to be notified when proving completes. Input format depends on the model's input_type: use 'text' for text models, 'fields' for structured_fields models, or 'raw' for raw vector models. Check GET /models to see what each model expects.",
+        "tags": ["Proving"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProveRequest"
+              },
+              "examples": {
+                "structured_fields": {
+                  "summary": "Structured fields input (authorization model)",
+                  "value": {
+                    "model_id": "authorization",
+                    "input": {
+                      "fields": {
+                        "budget": 10,
+                        "trust": 5,
+                        "amount": 3,
+                        "category": 1,
+                        "velocity": 2,
+                        "day": 3,
+                        "time": 1,
+                        "risk": 0
+                      }
+                    }
+                  }
+                },
+                "raw": {
+                  "summary": "Raw integer vector input",
+                  "value": {
+                    "model_id": "my_custom_model",
+                    "input": {
+                      "raw": [1, 0, 0, 3, 7, 0, 0, 2]
+                    }
+                  }
+                },
+                "with_webhook": {
+                  "summary": "Request with webhook notification",
+                  "value": {
+                    "model_id": "authorization",
+                    "input": {
+                      "fields": {
+                        "budget": 10,
+                        "trust": 5,
+                        "amount": 3,
+                        "category": 1,
+                        "velocity": 2,
+                        "day": 3,
+                        "time": 1,
+                        "risk": 0
+                      }
+                    },
+                    "webhook_url": "https://example.com/hooks/clawproof"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Proof generation started. The receipt_id can be used to poll for proof completion via GET /receipt/{id}. The output contains the model's prediction. Status will be 'proving' until the SNARK proof completes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProveResponse"
+                },
+                "example": {
+                  "receipt_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                  "receipt_url": "https://clawproof.onrender.com/receipt/a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                  "model_id": "authorization",
+                  "output": {
+                    "raw_output": [142, -37],
+                    "predicted_class": 0,
+                    "label": "AUTHORIZED",
+                    "confidence": 0.7932960893854749
+                  },
+                  "status": "proving"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request. Possible causes: missing or wrong input format for the model's input_type, raw vector length mismatch, text exceeds 10,000 characters, webhook_url not HTTPS, or tensor creation failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "missing_text": {
+                    "summary": "Text input required but not provided",
+                    "value": {
+                      "error": "Text input required for this model",
+                      "hint": "Provide {\"input\": {\"text\": \"...\"}}"
+                    }
+                  },
+                  "missing_fields": {
+                    "summary": "Fields input required but not provided",
+                    "value": {
+                      "error": "Field inputs required for this model",
+                      "hint": "Provide {\"input\": {\"fields\": {\"field_name\": value}}}"
+                    }
+                  },
+                  "raw_length_mismatch": {
+                    "summary": "Raw input vector has wrong length",
+                    "value": {
+                      "error": "Raw input length 5 does not match expected 64"
+                    }
+                  },
+                  "webhook_not_https": {
+                    "summary": "Webhook URL must use HTTPS",
+                    "value": {
+                      "error": "webhook_url must use HTTPS",
+                      "hint": "Provide a URL starting with https://"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Model not found in the registry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Model not found: nonexistent_model",
+                  "hint": "Check GET /models for available model IDs"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error during inference or hash computation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Inference failed: ..."
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Model is registered but still loading (SNARK preprocessing incomplete). Retry after checking GET /health.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Model 'authorization' is still loading. Try again shortly.",
+                  "hint": "Check GET /health to see model loading status"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/prove/batch": {
+      "post": {
+        "operationId": "batchProve",
+        "summary": "Submit a batch of proof generation requests",
+        "description": "Accepts up to 5 proof requests in a single call. Each request follows the same format as POST /prove. All requests are executed sequentially and a combined response is returned. If any individual request fails, the entire batch fails. Use this to generate proofs for multiple model/input combinations in one API call.",
+        "tags": ["Proving"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchRequest"
+              },
+              "example": {
+                "requests": [
+                  {
+                    "model_id": "authorization",
+                    "input": {
+                      "fields": {
+                        "budget": 10,
+                        "trust": 5,
+                        "amount": 3,
+                        "category": 1,
+                        "velocity": 2,
+                        "day": 3,
+                        "time": 1,
+                        "risk": 0
+                      }
+                    }
+                  },
+                  {
+                    "model_id": "authorization",
+                    "input": {
+                      "fields": {
+                        "budget": 15,
+                        "trust": 1,
+                        "amount": 12,
+                        "category": 3,
+                        "velocity": 5,
+                        "day": 0,
+                        "time": 3,
+                        "risk": 0
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "All batch requests succeeded. Each receipt in the array corresponds positionally to the input request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchResponse"
+                },
+                "example": {
+                  "receipts": [
+                    {
+                      "receipt_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                      "receipt_url": "https://clawproof.onrender.com/receipt/a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                      "model_id": "authorization",
+                      "output": {
+                        "raw_output": [142, -37],
+                        "predicted_class": 0,
+                        "label": "AUTHORIZED",
+                        "confidence": 0.7932960893854749
+                      },
+                      "status": "proving"
+                    },
+                    {
+                      "receipt_id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+                      "receipt_url": "https://clawproof.onrender.com/receipt/b2c3d4e5-f6a7-8901-bcde-f12345678901",
+                      "model_id": "authorization",
+                      "output": {
+                        "raw_output": [-89, 142],
+                        "predicted_class": 1,
+                        "label": "DENIED",
+                        "confidence": 0.6147186147186147
+                      },
+                      "status": "proving"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid batch request. The requests array must contain between 1 and 5 items. Individual request validation errors also return 400.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "empty_batch": {
+                    "summary": "Empty requests array",
+                    "value": {
+                      "error": "At least one request is required",
+                      "hint": "Provide {\"requests\": [{\"model_id\": \"...\", \"input\": {...}}]}"
+                    }
+                  },
+                  "too_many": {
+                    "summary": "Exceeds maximum batch size",
+                    "value": {
+                      "error": "Maximum 5 requests per batch"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "A referenced model was not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error during inference.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A referenced model is still loading.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/receipt/{id}": {
+      "get": {
+        "operationId": "getReceipt",
+        "summary": "Retrieve a proof receipt by ID",
+        "description": "Returns the full proof receipt for the given receipt ID. The receipt includes cryptographic hashes (model, input, output, proof), timing information, the inference output, and the current proof status. Supports content negotiation: send Accept: application/json for JSON (default for API clients), or omit for an HTML page. Append ?format=jsonld to get a Schema.org JSON-LD representation suitable for structured data embedding. Poll this endpoint to check when an in-progress proof completes (status transitions from 'proving' to 'verified' or 'failed').",
+        "tags": ["Receipts"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The UUID of the proof receipt, returned by POST /prove.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "description": "Set to 'jsonld' to receive a Schema.org JSON-LD representation of the receipt instead of the default format.",
+            "schema": {
+              "type": "string",
+              "enum": ["jsonld"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The proof receipt. Content type depends on Accept header and format query param.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Receipt"
+                },
+                "example": {
+                  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                  "model_id": "authorization",
+                  "model_name": "Transaction Authorization",
+                  "status": "verified",
+                  "created_at": "2025-01-15T10:30:00Z",
+                  "completed_at": "2025-01-15T10:30:45Z",
+                  "model_hash": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+                  "input_hash": "sha256:2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
+                  "output_hash": "sha256:fcde2b2edba56bf408601fb721fe9b5c338d10ee429ea04fae5511b68fbf8fb9",
+                  "output": {
+                    "raw_output": [142, -37],
+                    "predicted_class": 0,
+                    "label": "AUTHORIZED",
+                    "confidence": 0.7932960893854749
+                  },
+                  "proof_hash": "sha256:b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c",
+                  "proof_size": 14280,
+                  "prove_time_ms": 42350,
+                  "verify_time_ms": 120,
+                  "error": null
+                }
+              },
+              "application/ld+json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Schema.org JSON-LD representation of the receipt."
+                },
+                "example": {
+                  "@context": "https://schema.org",
+                  "@type": "DigitalDocument",
+                  "identifier": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                  "name": "zkML Proof Receipt \u2014 Transaction Authorization",
+                  "description": "Cryptographic proof of ML inference for model 'authorization'",
+                  "dateCreated": "2025-01-15T10:30:00+00:00",
+                  "dateModified": "2025-01-15T10:30:45+00:00",
+                  "creator": {
+                    "@type": "SoftwareApplication",
+                    "name": "ClawProof",
+                    "url": "https://clawproof.onrender.com"
+                  },
+                  "about": {
+                    "@type": "SoftwareApplication",
+                    "name": "Transaction Authorization",
+                    "identifier": "authorization"
+                  },
+                  "status": "verified",
+                  "model_hash": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+                  "input_hash": "sha256:2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
+                  "output_hash": "sha256:fcde2b2edba56bf408601fb721fe9b5c338d10ee429ea04fae5511b68fbf8fb9",
+                  "proof_hash": "sha256:b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c",
+                  "proof_size": 14280,
+                  "prove_time_ms": 42350,
+                  "verify_time_ms": 120,
+                  "prediction": {
+                    "label": "AUTHORIZED",
+                    "confidence": 0.7932960893854749,
+                    "predicted_class": 0
+                  }
+                }
+              },
+              "text/html": {
+                "schema": {
+                  "type": "string",
+                  "description": "Human-readable HTML page showing the receipt details."
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No receipt found with the given ID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Receipt not found",
+                  "hint": "Check the receipt ID"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/verify": {
+      "post": {
+        "operationId": "verifyReceipt",
+        "summary": "Verify a proof receipt",
+        "description": "Checks whether the SNARK proof in the specified receipt is valid. Returns the verification result along with the current receipt status. A receipt with status 'verified' means the cryptographic proof has been generated and independently verified. Status 'proving' means proof generation is still in progress. Status 'failed' means proof generation encountered an error.",
+        "tags": ["Verification"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyRequest"
+              },
+              "example": {
+                "receipt_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Verification result. 'valid' is true only when the proof has been generated and verified successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyResponse"
+                },
+                "examples": {
+                  "verified": {
+                    "summary": "Proof verified successfully",
+                    "value": {
+                      "valid": true,
+                      "receipt_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                      "status": "verified"
+                    }
+                  },
+                  "still_proving": {
+                    "summary": "Proof generation still in progress",
+                    "value": {
+                      "valid": false,
+                      "receipt_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                      "status": "proving"
+                    }
+                  },
+                  "failed": {
+                    "summary": "Proof generation failed",
+                    "value": {
+                      "valid": false,
+                      "receipt_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                      "status": "failed"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No receipt found with the given ID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Receipt not found",
+                  "hint": "Check the receipt_id and try GET /receipt/{id}"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/badge/{receipt_id}": {
+      "get": {
+        "operationId": "getBadge",
+        "summary": "Get an SVG badge for a proof receipt",
+        "description": "Returns a shields.io-style SVG badge showing the proof status for the given receipt. Embed this in README files, dashboards, or web pages to display real-time proof status. Badge colors: green for 'verified', yellow for 'proving', red for 'failed'. Verified and failed badges are cached for 1 hour; proving badges are not cached.",
+        "tags": ["Badges"],
+        "parameters": [
+          {
+            "name": "receipt_id",
+            "in": "path",
+            "required": true,
+            "description": "The UUID of the proof receipt.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SVG badge image showing the proof status.",
+            "content": {
+              "image/svg+xml": {
+                "schema": {
+                  "type": "string",
+                  "description": "SVG markup for the status badge."
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "description": "Caching directive. 'no-cache' for proving receipts, 'public, max-age=3600' for verified/failed.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Access-Control-Allow-Origin": {
+                "description": "Always set to '*' for cross-origin embedding.",
+                "schema": {
+                  "type": "string",
+                  "const": "*"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No receipt found with the given ID. Returns plain text 'Receipt not found'.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "Receipt not found"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "operationId": "getMetrics",
+        "summary": "Get platform metrics",
+        "description": "Returns aggregate statistics about all proof receipts on the platform: total count, counts by status (verified, failed, proving), per-model breakdowns, and average proving/verification times in milliseconds. Useful for monitoring dashboards and observability.",
+        "tags": ["Status"],
+        "responses": {
+          "200": {
+            "description": "Platform-wide proof generation metrics.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsResponse"
+                },
+                "example": {
+                  "total_proofs": 127,
+                  "verified": 118,
+                  "failed": 4,
+                  "proving": 5,
+                  "by_model": {
+                    "authorization": 127
+                  },
+                  "avg_prove_time_ms": 43250.5,
+                  "avg_verify_time_ms": 115.3
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/models/upload": {
+      "post": {
+        "operationId": "uploadModel",
+        "summary": "Upload an ONNX model",
+        "description": "Upload a custom ONNX model to ClawProof via multipart form. The model will be validated (loaded with onnx_tracer), registered in the model registry, and SNARK preprocessing will start in the background. The model becomes available for proving once preprocessing completes (check GET /health). Maximum ONNX file size is 5 MB. The model is registered with input_type 'raw', meaning callers must provide a raw integer vector matching the declared input_dim.",
+        "tags": ["Models"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadModelRequest"
+              },
+              "encoding": {
+                "onnx_file": {
+                  "contentType": "application/octet-stream"
+                },
+                "labels": {
+                  "contentType": "application/json"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Model uploaded and preprocessing started. The model_id is auto-generated from the name. Status 'preprocessing' means the SNARK setup is running in the background.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadResponse"
+                },
+                "example": {
+                  "model_id": "my_fraud_detector_a3b4c5d6",
+                  "name": "My Fraud Detector",
+                  "status": "preprocessing"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid upload. Missing required fields, invalid ONNX file, or validation errors.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "missing_onnx": {
+                    "summary": "Missing ONNX file",
+                    "value": {
+                      "error": "Missing onnx_file field",
+                      "hint": "Upload ONNX model as multipart form field 'onnx_file'"
+                    }
+                  },
+                  "missing_name": {
+                    "summary": "Missing name field",
+                    "value": {
+                      "error": "Missing name field"
+                    }
+                  },
+                  "invalid_input_dim": {
+                    "summary": "input_dim must be positive",
+                    "value": {
+                      "error": "input_dim must be > 0"
+                    }
+                  },
+                  "empty_labels": {
+                    "summary": "Labels array is empty",
+                    "value": {
+                      "error": "labels must be a non-empty JSON array",
+                      "hint": "Provide labels as JSON array string, e.g. '[\"class_a\",\"class_b\"]'"
+                    }
+                  },
+                  "invalid_onnx": {
+                    "summary": "ONNX model failed validation",
+                    "value": {
+                      "error": "Invalid ONNX model \u2014 failed to load",
+                      "hint": "Ensure the file is a valid ONNX model"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "ONNX file exceeds the 5 MB size limit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "ONNX file exceeds 5MB limit"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error while saving the model.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Failed to save model"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/convert": {
+      "post": {
+        "operationId": "convertModel",
+        "summary": "Convert a model to ONNX format",
+        "description": "Proxies a multipart form upload to the model converter sidecar service. Upload a model file (e.g., PyTorch .pt, TensorFlow .h5, scikit-learn .pkl) and receive the converted ONNX bytes in the response. Requires the CONVERTER_URL environment variable to be configured on the server. The converter sidecar handles the actual conversion; this endpoint is a transparent proxy.",
+        "tags": ["Models"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "The model file to convert (e.g., .pt, .h5, .pkl)."
+                  }
+                },
+                "required": ["file"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully converted model. Response body contains the raw ONNX bytes.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary",
+                  "description": "The converted ONNX model file bytes."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Failed to read the uploaded file.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Failed to read upload: ..."
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Model converter sidecar is not configured on this server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Model converter not configured",
+                  "hint": "Set CONVERTER_URL environment variable to enable conversion"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The converter sidecar service is unreachable or returned an error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Converter service unavailable",
+                  "hint": "The model conversion sidecar is not responding"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "operationId": "getOpenApiSpec",
+        "summary": "Get this OpenAPI specification",
+        "description": "Returns the OpenAPI 3.1 JSON specification for the ClawProof API. Use this for auto-generating client SDKs, importing into API tools (Postman, Insomnia, Swagger UI), or for AI agents to understand the available endpoints and their schemas.",
+        "tags": ["Status"],
+        "responses": {
+          "200": {
+            "description": "The OpenAPI 3.1 specification document.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenAPI 3.1 specification document."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "description": "Service health and readiness status. The service is ready when all models have completed SNARK preprocessing (models_loaded equals models_total).",
+        "required": ["status", "version", "proof_system", "models_loaded", "models_total", "ready"],
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Service status. Always 'ok' if the service is running.",
+            "example": "ok"
+          },
+          "version": {
+            "type": "string",
+            "description": "ClawProof version string.",
+            "example": "clawproof-v0.1.0"
+          },
+          "proof_system": {
+            "type": "string",
+            "description": "The proof system and commitment scheme in use.",
+            "example": "JOLT-Atlas SNARK (Dory/BN254)"
+          },
+          "models_loaded": {
+            "type": "integer",
+            "description": "Number of models that have completed SNARK preprocessing and are ready for proving.",
+            "example": 3
+          },
+          "models_total": {
+            "type": "integer",
+            "description": "Total number of models registered in the model registry.",
+            "example": 3
+          },
+          "ready": {
+            "type": "boolean",
+            "description": "True when all models have completed preprocessing. Only when ready=true can all models accept proof requests.",
+            "example": true
+          }
+        }
+      },
+      "ModelDescriptor": {
+        "type": "object",
+        "description": "Describes a registered ML model, its expected input format, output labels, and SNARK trace configuration. Use the 'id' field as the model_id in POST /prove requests.",
+        "required": ["id", "name", "description", "input_type", "input_dim", "input_shape", "labels", "trace_length"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique model identifier. Use this as model_id in /prove requests.",
+            "example": "authorization"
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable model name.",
+            "example": "Transaction Authorization"
+          },
+          "description": {
+            "type": "string",
+            "description": "What this model does and what kind of input it expects.",
+            "example": "Determines whether a transaction should be authorized or denied based on budget, trust, amount, and other features."
+          },
+          "input_type": {
+            "type": "string",
+            "enum": ["text", "structured_fields", "raw"],
+            "description": "Determines which field in ProveInput to populate: 'text' requires input.text, 'structured_fields' requires input.fields, 'raw' requires input.raw.",
+            "example": "structured_fields"
+          },
+          "input_dim": {
+            "type": "integer",
+            "description": "Total number of elements in the flattened input vector. For raw input, your vector must have exactly this many elements.",
+            "example": 64
+          },
+          "input_shape": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "description": "Tensor shape for the model input (e.g., [1, 64] for a single sample with 64 features).",
+            "example": [1, 64]
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Output class labels. The index of the label corresponds to the predicted_class in the output.",
+            "example": ["AUTHORIZED", "DENIED"]
+          },
+          "trace_length": {
+            "type": "integer",
+            "description": "JOLT SNARK trace length (power of 2). Larger traces support more complex models but require more memory and time.",
+            "example": 16384
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FieldSchema"
+            },
+            "nullable": true,
+            "description": "Field schemas for structured_fields input models. Each field has a name, description, and valid value range. Only present when input_type is 'structured_fields'."
+          }
+        }
+      },
+      "FieldSchema": {
+        "type": "object",
+        "description": "Describes a named input field for a structured_fields model, including its valid value range.",
+        "required": ["name", "description", "min", "max"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Field name. Use this as the key in the input.fields object.",
+            "example": "budget"
+          },
+          "description": {
+            "type": "string",
+            "description": "Human-readable description of what this field represents.",
+            "example": "Budget level"
+          },
+          "min": {
+            "type": "integer",
+            "description": "Minimum allowed value (inclusive).",
+            "example": 0
+          },
+          "max": {
+            "type": "integer",
+            "description": "Maximum allowed value (inclusive). Values above this will be rejected with a 400 error.",
+            "example": 15
+          }
+        }
+      },
+      "ProveRequest": {
+        "type": "object",
+        "description": "Request body for generating a zkML proof. Provide the model_id and the appropriate input format for that model's input_type. Optionally include a webhook_url (HTTPS only) to receive a POST notification when the proof completes.",
+        "required": ["model_id"],
+        "properties": {
+          "model_id": {
+            "type": "string",
+            "description": "The ID of the model to run inference on. Must match a model from GET /models.",
+            "example": "authorization"
+          },
+          "input": {
+            "$ref": "#/components/schemas/ProveInput"
+          },
+          "webhook_url": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true,
+            "description": "Optional HTTPS URL to receive a POST callback when proof generation completes. Must start with https://.",
+            "example": "https://example.com/hooks/clawproof"
+          }
+        }
+      },
+      "ProveInput": {
+        "type": "object",
+        "description": "Input data for inference. Provide exactly one of text, fields, or raw, depending on the model's input_type. Providing the wrong type for a model will return a 400 error.",
+        "properties": {
+          "text": {
+            "type": "string",
+            "nullable": true,
+            "description": "Free-form text input for models with input_type 'text'. Maximum 10,000 characters. The text is tokenized and converted to a TF-IDF vector internally.",
+            "example": "The central bank raised interest rates by 25 basis points."
+          },
+          "fields": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "nullable": true,
+            "description": "Named field values for models with input_type 'structured_fields'. Keys must match the field names from the model's fields schema. Values must be integers within each field's [min, max] range.",
+            "example": {
+              "budget": 10,
+              "trust": 5,
+              "amount": 3,
+              "category": 1,
+              "velocity": 2,
+              "day": 3,
+              "time": 1,
+              "risk": 0
+            }
+          },
+          "raw": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "nullable": true,
+            "description": "Raw integer vector for models with input_type 'raw'. Must have exactly input_dim elements as declared by the model.",
+            "example": [1, 0, 0, 3, 7, 0, 0, 2]
+          }
+        }
+      },
+      "ProveResponse": {
+        "type": "object",
+        "description": "Response from a successful proof submission. Contains the inference output immediately; the cryptographic proof is generated asynchronously. Poll the receipt_url or use webhook_url to be notified when the proof completes.",
+        "required": ["receipt_id", "receipt_url", "model_id", "output", "status"],
+        "properties": {
+          "receipt_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique identifier for this proof receipt. Use this to check status via GET /receipt/{id} or POST /verify.",
+            "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          },
+          "receipt_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Direct URL to view or fetch this receipt.",
+            "example": "https://clawproof.onrender.com/receipt/a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          },
+          "model_id": {
+            "type": "string",
+            "description": "The model that was used for inference.",
+            "example": "authorization"
+          },
+          "output": {
+            "$ref": "#/components/schemas/InferenceOutput"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["proving"],
+            "description": "Always 'proving' in the initial response. The proof is being generated in the background.",
+            "example": "proving"
+          }
+        }
+      },
+      "InferenceOutput": {
+        "type": "object",
+        "description": "The result of running ML inference. Contains the raw model output vector, the predicted class index, the human-readable label, and a confidence score.",
+        "required": ["raw_output", "predicted_class", "label", "confidence"],
+        "properties": {
+          "raw_output": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "description": "Raw integer output vector from the model. Each element corresponds to one output class.",
+            "example": [142, -37]
+          },
+          "predicted_class": {
+            "type": "integer",
+            "description": "Index of the class with the highest output value (argmax of raw_output).",
+            "example": 0
+          },
+          "label": {
+            "type": "string",
+            "description": "Human-readable label for the predicted class, taken from the model's labels array.",
+            "example": "AUTHORIZED"
+          },
+          "confidence": {
+            "type": "number",
+            "format": "double",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Confidence score computed as |raw_output[predicted_class]| / sum(|raw_output|). Ranges from 0 to 1.",
+            "example": 0.7932960893854749
+          }
+        }
+      },
+      "BatchRequest": {
+        "type": "object",
+        "description": "A batch of proof generation requests. Contains 1 to 5 individual prove requests.",
+        "required": ["requests"],
+        "properties": {
+          "requests": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 5,
+            "items": {
+              "$ref": "#/components/schemas/BatchItem"
+            },
+            "description": "Array of 1 to 5 proof requests. Each follows the same format as POST /prove."
+          }
+        }
+      },
+      "BatchItem": {
+        "type": "object",
+        "description": "A single item within a batch proof request.",
+        "required": ["model_id"],
+        "properties": {
+          "model_id": {
+            "type": "string",
+            "description": "The ID of the model to run inference on.",
+            "example": "authorization"
+          },
+          "input": {
+            "$ref": "#/components/schemas/ProveInput"
+          },
+          "webhook_url": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true,
+            "description": "Optional HTTPS webhook URL for this individual request.",
+            "example": "https://example.com/hooks/clawproof"
+          }
+        }
+      },
+      "BatchResponse": {
+        "type": "object",
+        "description": "Response from a batch proof submission. The receipts array has the same order as the input requests array.",
+        "required": ["receipts"],
+        "properties": {
+          "receipts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProveResponse"
+            },
+            "description": "Array of proof responses, one per input request, in the same order."
+          }
+        }
+      },
+      "Receipt": {
+        "type": "object",
+        "description": "A complete proof receipt containing cryptographic hashes, inference output, proof metadata, and timing information. This is the primary artifact that proves a specific model produced a specific output for a given input.",
+        "required": ["id", "model_id", "model_name", "status", "created_at", "model_hash", "input_hash", "output_hash", "output"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique receipt identifier.",
+            "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          },
+          "model_id": {
+            "type": "string",
+            "description": "Identifier of the model used for inference.",
+            "example": "authorization"
+          },
+          "model_name": {
+            "type": "string",
+            "description": "Human-readable name of the model.",
+            "example": "Transaction Authorization"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["proving", "verified", "failed"],
+            "description": "Current proof status. 'proving': proof generation in progress. 'verified': proof generated and verified. 'failed': proof generation encountered an error.",
+            "example": "verified"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp when the receipt was created (inference completed).",
+            "example": "2025-01-15T10:30:00Z"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "ISO 8601 timestamp when proof generation completed (or failed). Null while status is 'proving'.",
+            "example": "2025-01-15T10:30:45Z"
+          },
+          "model_hash": {
+            "type": "string",
+            "description": "SHA-256 hash commitment of the ONNX model weights. Proves which exact model was used.",
+            "example": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+          },
+          "input_hash": {
+            "type": "string",
+            "description": "SHA-256 hash of the input tensor. Proves which input was provided without revealing the input.",
+            "example": "sha256:2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae"
+          },
+          "output_hash": {
+            "type": "string",
+            "description": "SHA-256 hash of the output tensor. Binds the output to the proof.",
+            "example": "sha256:fcde2b2edba56bf408601fb721fe9b5c338d10ee429ea04fae5511b68fbf8fb9"
+          },
+          "output": {
+            "$ref": "#/components/schemas/InferenceOutput"
+          },
+          "proof_hash": {
+            "type": "string",
+            "nullable": true,
+            "description": "SHA-256 hash of the serialized SNARK proof. Null while proving.",
+            "example": "sha256:b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c"
+          },
+          "proof_size": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Size of the serialized SNARK proof in bytes. Null while proving.",
+            "example": 14280
+          },
+          "prove_time_ms": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Time spent generating the SNARK proof, in milliseconds. Null while proving.",
+            "example": 42350
+          },
+          "verify_time_ms": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Time spent verifying the SNARK proof, in milliseconds. Null while proving.",
+            "example": 120
+          },
+          "error": {
+            "type": "string",
+            "nullable": true,
+            "description": "Error message if proof generation failed. Null unless status is 'failed'.",
+            "example": null
+          }
+        }
+      },
+      "VerifyRequest": {
+        "type": "object",
+        "description": "Request to verify a proof receipt.",
+        "required": ["receipt_id"],
+        "properties": {
+          "receipt_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The receipt ID to verify.",
+            "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          }
+        }
+      },
+      "VerifyResponse": {
+        "type": "object",
+        "description": "Result of a verification check. 'valid' is true only when the receipt status is 'verified', meaning the SNARK proof was generated and independently verified.",
+        "required": ["valid", "receipt_id", "status"],
+        "properties": {
+          "valid": {
+            "type": "boolean",
+            "description": "True if the proof has been verified successfully. False if still proving or failed.",
+            "example": true
+          },
+          "receipt_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The receipt ID that was verified.",
+            "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["verified", "proving", "failed"],
+            "description": "Current status of the receipt.",
+            "example": "verified"
+          }
+        }
+      },
+      "MetricsResponse": {
+        "type": "object",
+        "description": "Aggregate platform metrics across all proof receipts.",
+        "required": ["total_proofs", "verified", "failed", "proving", "by_model"],
+        "properties": {
+          "total_proofs": {
+            "type": "integer",
+            "description": "Total number of proof receipts ever created.",
+            "example": 127
+          },
+          "verified": {
+            "type": "integer",
+            "description": "Number of receipts with status 'verified'.",
+            "example": 118
+          },
+          "failed": {
+            "type": "integer",
+            "description": "Number of receipts with status 'failed'.",
+            "example": 4
+          },
+          "proving": {
+            "type": "integer",
+            "description": "Number of receipts currently in 'proving' status.",
+            "example": 5
+          },
+          "by_model": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Proof count broken down by model_id.",
+            "example": {
+              "authorization": 62,
+              "collision_severity": 38,
+              "article_classification": 27
+            }
+          },
+          "avg_prove_time_ms": {
+            "type": "number",
+            "format": "double",
+            "nullable": true,
+            "description": "Average proof generation time in milliseconds across all completed proofs. Null if no proofs have completed.",
+            "example": 43250.5
+          },
+          "avg_verify_time_ms": {
+            "type": "number",
+            "format": "double",
+            "nullable": true,
+            "description": "Average proof verification time in milliseconds across all verified proofs. Null if no proofs have been verified.",
+            "example": 115.3
+          }
+        }
+      },
+      "UploadModelRequest": {
+        "type": "object",
+        "description": "Multipart form fields for uploading a custom ONNX model.",
+        "required": ["onnx_file", "name", "input_dim", "labels"],
+        "properties": {
+          "onnx_file": {
+            "type": "string",
+            "format": "binary",
+            "description": "The ONNX model file. Maximum 5 MB."
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable name for the model. Used to auto-generate the model_id.",
+            "example": "My Fraud Detector"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional description of what this model does.",
+            "example": "Detects fraudulent credit card transactions."
+          },
+          "input_dim": {
+            "type": "integer",
+            "description": "Number of elements in the input vector. Must be greater than 0.",
+            "example": 32
+          },
+          "labels": {
+            "type": "string",
+            "description": "JSON-encoded array of output class label strings. Must be a non-empty array.",
+            "example": "[\"legitimate\", \"fraudulent\"]"
+          },
+          "trace_length": {
+            "type": "integer",
+            "description": "JOLT SNARK trace length (power of 2). Defaults to 16384 if not specified. Larger values support more complex models.",
+            "default": 16384,
+            "example": 16384
+          }
+        }
+      },
+      "UploadResponse": {
+        "type": "object",
+        "description": "Response after a successful model upload. The model is being preprocessed in the background and will become available for proving once preprocessing completes.",
+        "required": ["model_id", "name", "status"],
+        "properties": {
+          "model_id": {
+            "type": "string",
+            "description": "Auto-generated unique model identifier. Use this in future /prove requests.",
+            "example": "my_fraud_detector_a3b4c5d6"
+          },
+          "name": {
+            "type": "string",
+            "description": "The human-readable name as provided in the upload.",
+            "example": "My Fraud Detector"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["preprocessing"],
+            "description": "Always 'preprocessing' on success. The SNARK setup runs in the background. Check GET /health to see when it finishes.",
+            "example": "preprocessing"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "description": "Standard error response returned by all endpoints on failure. Always contains an error message; may optionally include a hint with guidance on how to fix the issue.",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Human-readable error message describing what went wrong.",
+            "example": "Model not found: nonexistent_model"
+          },
+          "hint": {
+            "type": "string",
+            "nullable": true,
+            "description": "Optional actionable hint on how to resolve the error.",
+            "example": "Check GET /models for available model IDs"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Status",
+      "description": "Health checks, metrics, and API specification endpoints."
+    },
+    {
+      "name": "Models",
+      "description": "List, upload, and convert ML models."
+    },
+    {
+      "name": "Proving",
+      "description": "Submit inputs for zkML proof generation (single or batch)."
+    },
+    {
+      "name": "Receipts",
+      "description": "Retrieve proof receipts by ID."
+    },
+    {
+      "name": "Verification",
+      "description": "Verify that a proof receipt is valid."
+    },
+    {
+      "name": "Badges",
+      "description": "Embeddable SVG badges showing proof status."
+    }
+  ]
+}

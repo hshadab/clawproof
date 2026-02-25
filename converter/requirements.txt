@@ -1,0 +1,23 @@
+# ClawProof ONNX Converter Sidecar
+# Install: pip install -r requirements.txt
+
+fastapi>=0.110,<1
+uvicorn[standard]>=0.29,<1
+python-multipart>=0.0.9
+
+# ONNX runtime & format
+onnx>=1.15,<2
+
+# PyTorch (CPU-only to keep image small)
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch>=2.2,<3
+
+# TensorFlow -> ONNX
+tf2onnx>=1.16,<2
+
+# scikit-learn -> ONNX
+skl2onnx>=1.16,<2
+scikit-learn>=1.4,<2
+
+# Numerical
+numpy>=1.26,<3

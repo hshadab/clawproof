@@ -1,0 +1,56 @@
+id = "authorization"
+name = "Transaction Authorization"
+description = "Determines whether a transaction should be authorized or denied based on budget, trust, amount, and other features."
+input_type = "structured_fields"
+input_dim = 64
+input_shape = [1, 64]
+labels = ["AUTHORIZED", "DENIED"]
+trace_length = 16384
+
+[[fields]]
+name = "budget"
+description = "Budget level"
+min = 0
+max = 15
+
+[[fields]]
+name = "trust"
+description = "Trust score"
+min = 0
+max = 7
+
+[[fields]]
+name = "amount"
+description = "Transaction amount"
+min = 0
+max = 15
+
+[[fields]]
+name = "category"
+description = "Merchant category"
+min = 0
+max = 3
+
+[[fields]]
+name = "velocity"
+description = "Transaction velocity"
+min = 0
+max = 7
+
+[[fields]]
+name = "day"
+description = "Day of week"
+min = 0
+max = 7
+
+[[fields]]
+name = "time"
+description = "Time of day"
+min = 0
+max = 3
+
+[[fields]]
+name = "risk"
+description = "Risk level"
+min = 0
+max = 0

@@ -1,0 +1,44 @@
+{
+  "name": "clawproof",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for ClawProof — zero-knowledge ML proof generation and verification",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run build"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "zkml",
+    "zero-knowledge",
+    "machine-learning",
+    "proof",
+    "verification",
+    "snark",
+    "clawproof"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hshadab/clawproof",
+    "directory": "sdks/js"
+  }
+}

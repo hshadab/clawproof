@@ -1,0 +1,63 @@
+[package]
+name = "clawproof"
+version = "0.1.0"
+edition = "2021"
+description = "clawproof — zkML proof generation web app with shareable receipt URLs"
+repository = "https://github.com/hshadab/clawproof"
+keywords = ["zkml", "jolt", "snark", "proof", "onnx"]
+
+[dependencies]
+# JOLT-Atlas ZKML crates (pinned to known-good rev)
+onnx-tracer = { git = "https://github.com/ICME-Lab/jolt-atlas", rev = "194ee927313f90f3827e86e885fb045742f3e971", features = ["matmul_power_of_two_padding"] }
+zkml-jolt-core = { git = "https://github.com/ICME-Lab/jolt-atlas", rev = "194ee927313f90f3827e86e885fb045742f3e971" }
+jolt-core = { git = "https://github.com/hshadab/zkml-jolt", rev = "b217e7e4", package = "jolt-core", default-features = true }
+
+# Arkworks
+ark-bn254 = "0.5.0"
+ark-serialize = { version = "0.5.0", default-features = false, features = ["derive"] }
+ark-std = "0.5.0"
+
+# Web
+axum = { version = "0.7", features = ["multipart"] }
+tokio = { version = "1", features = ["full"] }
+tower = { version = "0.5", features = ["limit", "buffer"] }
+tower-http = { version = "0.5", features = ["cors"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Crypto
+sha3 = "0.10"
+hex = "0.4"
+
+# Utilities
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anyhow = "1"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+dashmap = "5"
+regex = "1.10"
+rusqlite = { version = "0.32", features = ["bundled"] }
+toml = "0.8"
+reqwest = { version = "0.12", features = ["json", "rustls-tls", "multipart"], default-features = false }
+
+[profile.release]
+lto = "thin"
+
+[profile.test]
+opt-level = 3
+lto = "off"
+
+# Pinned to dev/twist-shout for const generics support required by Jolt.
+# The Cargo.lock pins the exact revision (76bb3a45) — do NOT delete the lockfile.
+[patch.crates-io]
+ark-ff = { git = "https://github.com/a16z/arkworks-algebra", branch = "dev/twist-shout" }
+ark-ec = { git = "https://github.com/a16z/arkworks-algebra", branch = "dev/twist-shout" }
+ark-serialize = { git = "https://github.com/a16z/arkworks-algebra", branch = "dev/twist-shout" }
+ark-bn254 = { git = "https://github.com/a16z/arkworks-algebra", branch = "dev/twist-shout" }
+
+# Redirect jolt-core from ICME-Lab to fork with const generics fix
+[patch."https://github.com/ICME-Lab/zkml-jolt"]
+jolt-core = { git = "https://github.com/hshadab/zkml-jolt", rev = "b217e7e4", package = "jolt-core" }
