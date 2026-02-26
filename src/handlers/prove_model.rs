@@ -228,10 +228,28 @@ pub async fn prove_model(
         )
     })?;
 
-    // Validate ONNX
+    // Quick magic-byte check before attempting to load
+    if onnx_bytes.len() < 4 || &onnx_bytes[..4] != b"\x08\x03\x12\x04" && &onnx_bytes[..2] != b"\x08\x03" {
+        // ONNX protobuf files start with field 1 (ir_version) varint tag 0x08
+        // Do a best-effort check — if it doesn't even look like protobuf, reject early
+        if onnx_bytes.len() < 2 || onnx_bytes[0] != 0x08 {
+            let _ = std::fs::remove_dir_all(&model_dir);
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: "File does not appear to be an ONNX model".to_string(),
+                    hint: Some("Upload a valid .onnx file (ONNX protobuf format)".to_string()),
+                }),
+            ));
+        }
+    }
+
+    // Validate ONNX by loading
     let onnx_path_clone = onnx_path.clone();
     let validation = tokio::task::spawn_blocking(move || {
-        std::panic::catch_unwind(|| { let _ = model(&onnx_path_clone); })
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _ = model(&onnx_path_clone);
+        }))
     }).await;
 
     match validation {
@@ -290,18 +308,31 @@ trace_length = {trace_length}
     let preprocess_onnx_path = onnx_path.clone();
     let preprocess_trace = trace_length;
     let preprocessing = tokio::task::spawn_blocking(move || {
-        let model_fn = || model(&preprocess_onnx_path);
-        Snark::prover_preprocess(model_fn, preprocess_trace)
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let model_fn = || model(&preprocess_onnx_path);
+            Snark::prover_preprocess(model_fn, preprocess_trace)
+        }))
     })
     .await
     .map_err(|e| {
-        error!("[clawproof] Preprocessing failed for {}: {:?}", model_id, e);
+        error!("[clawproof] Preprocessing task failed for {}: {:?}", model_id, e);
         let _ = std::fs::remove_dir_all(&model_dir);
         (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse {
                 error: "Model preprocessing failed".to_string(),
                 hint: Some("The model may use unsupported ONNX operations".to_string()),
+            }),
+        )
+    })?
+    .map_err(|_| {
+        error!("[clawproof] Preprocessing panicked for {}", model_id);
+        let _ = std::fs::remove_dir_all(&model_dir);
+        (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "Model preprocessing crashed — likely uses unsupported operations".to_string(),
+                hint: Some("Use a simpler ONNX model with supported ops (Gemm, Relu, Add, etc.)".to_string()),
             }),
         )
     })?;

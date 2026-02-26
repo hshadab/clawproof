@@ -159,12 +159,24 @@ pub async fn upload_model(
         )
     })?;
 
+    // Quick magic-byte check before attempting to load
+    if onnx_bytes.len() < 2 || onnx_bytes[0] != 0x08 {
+        let _ = std::fs::remove_dir_all(&model_dir);
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "File does not appear to be an ONNX model".to_string(),
+                hint: Some("Upload a valid .onnx file (ONNX protobuf format)".to_string()),
+            }),
+        ));
+    }
+
     // Validate by loading
     let onnx_path_clone = onnx_path.clone();
     let validation_result = tokio::task::spawn_blocking(move || {
-        std::panic::catch_unwind(|| {
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             let _ = model(&onnx_path_clone);
-        })
+        }))
     })
     .await;
 
@@ -231,13 +243,15 @@ trace_length = {trace_length}
     tokio::spawn(async move {
         info!("[clawproof] Starting preprocessing for uploaded model {}", bg_model_id);
         let result = tokio::task::spawn_blocking(move || {
-            let model_fn = || model(&bg_model_path);
-            Snark::prover_preprocess(model_fn, trace_length)
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                let model_fn = || model(&bg_model_path);
+                Snark::prover_preprocess(model_fn, trace_length)
+            }))
         })
         .await;
 
         match result {
-            Ok(preprocessing) => {
+            Ok(Ok(preprocessing)) => {
                 let verifier_preprocessing = (&preprocessing).into();
                 bg_state.preprocessing.insert(
                     bg_model_id.clone(),
@@ -247,6 +261,9 @@ trace_length = {trace_length}
                     },
                 );
                 info!("[clawproof] Uploaded model {} preprocessed successfully", bg_model_id);
+            }
+            Ok(Err(_)) => {
+                error!("[clawproof] Preprocessing panicked for uploaded model {}", bg_model_id);
             }
             Err(e) => {
                 error!("[clawproof] Failed to preprocess uploaded model {}: {:?}", bg_model_id, e);
