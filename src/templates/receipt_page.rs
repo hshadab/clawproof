@@ -81,7 +81,7 @@ pub fn render(receipt: &Receipt, base_url: &str) -> String {
 
     // Pre-formatted share texts (escaped for JS strings)
     let verify_me_text = format!(
-        "I made this decision: {} ({:.1}% confidence). Don\\'t trust me \u{2014} verify it mathematically: {}",
+        "I made this decision: {} ({:.1}% confidence) \u{2014} ML inference cryptographically verified with a @novanet_zkp zkML proof. Don\\'t trust me, verify it: {}",
         receipt.output.label,
         receipt.output.confidence * 100.0,
         receipt_url,
@@ -470,7 +470,7 @@ pub fn render(receipt: &Receipt, base_url: &str) -> String {
         og_title = og_title,
         og_description = og_description,
         x_share_text_encoded = urlencoding::encode(&format!(
-            "My agent classified this as {} ({:.1}% confidence) \u{2014} cryptographically verified with a SNARK proof.\n\nDon't trust me, verify it:\n{}",
+            "My agent classified this as {} ({:.1}% confidence) \u{2014} ML inference cryptographically verified with a @novanet_zkp zkML proof.\n\nDon't trust me, verify it:\n{}",
             receipt.output.label,
             receipt.output.confidence * 100.0,
             receipt_url,
