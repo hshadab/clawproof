@@ -524,7 +524,7 @@ async fn main() -> anyhow::Result<()> {
                                                 "verification_code": code,
                                                 "answer": answer
                                             });
-                                            match client.post(format!("{}/posts/verify", base))
+                                            match client.post(format!("{}/verify", base))
                                                 .header("Authorization", &auth)
                                                 .header("Content-Type", "application/json")
                                                 .body(verify_body.to_string())
