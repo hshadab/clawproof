@@ -203,30 +203,74 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
-    // Moltbook heartbeat — pings /home every 30 minutes if API key is set
+    // Moltbook heartbeat — checks home, reads & acknowledges notifications every 30 min
     if let Some(ref key) = config.moltbook_api_key {
         let api_key = key.clone();
         tokio::spawn(async move {
             let client = reqwest::Client::new();
+            let base = "https://www.moltbook.com/api/v1";
             let mut interval = tokio::time::interval(Duration::from_secs(1800));
             loop {
                 interval.tick().await;
-                match client
-                    .get("https://www.moltbook.com/api/v1/home")
-                    .header("Authorization", format!("Bearer {}", api_key))
-                    .send()
-                    .await
+
+                // 1. Check /home dashboard
+                let auth = format!("Bearer {}", api_key);
+                match client.get(format!("{}/home", base))
+                    .header("Authorization", &auth)
+                    .send().await
                 {
                     Ok(resp) => {
-                        info!("[clawproof] Moltbook heartbeat: {}", resp.status());
+                        info!("[clawproof] Moltbook heartbeat /home: {}", resp.status());
                     }
                     Err(e) => {
-                        tracing::warn!("[clawproof] Moltbook heartbeat failed: {:?}", e);
+                        tracing::warn!("[clawproof] Moltbook heartbeat /home failed: {:?}", e);
+                        continue;
+                    }
+                }
+
+                // 2. Check notifications
+                match client.get(format!("{}/notifications", base))
+                    .header("Authorization", &auth)
+                    .send().await
+                {
+                    Ok(resp) => {
+                        let status = resp.status();
+                        info!("[clawproof] Moltbook notifications: {}", status);
+                        if status.is_success() {
+                            // 3. Mark all notifications as read
+                            match client.post(format!("{}/notifications/read-all", base))
+                                .header("Authorization", &auth)
+                                .send().await
+                            {
+                                Ok(r) => {
+                                    info!("[clawproof] Moltbook read-all: {}", r.status());
+                                }
+                                Err(e) => {
+                                    tracing::warn!("[clawproof] Moltbook read-all failed: {:?}", e);
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        tracing::warn!("[clawproof] Moltbook notifications failed: {:?}", e);
+                    }
+                }
+
+                // 4. Browse personalized feed to register activity
+                match client.get(format!("{}/feed", base))
+                    .header("Authorization", &auth)
+                    .send().await
+                {
+                    Ok(resp) => {
+                        info!("[clawproof] Moltbook feed check: {}", resp.status());
+                    }
+                    Err(e) => {
+                        tracing::warn!("[clawproof] Moltbook feed check failed: {:?}", e);
                     }
                 }
             }
         });
-        info!("[clawproof] Moltbook heartbeat enabled (every 30 min)");
+        info!("[clawproof] Moltbook heartbeat enabled (every 30 min: home + notifications + feed)");
     }
 
     // CORS configuration

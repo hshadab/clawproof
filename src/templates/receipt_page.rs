@@ -65,23 +65,50 @@ pub fn render(receipt: &Receipt, base_url: &str) -> String {
 
     format!(
         r#"<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     {auto_refresh}
-    <title>Receipt — clawproof</title>
+    <title>Receipt — ClawProof</title>
     <style>
         *, *::before, *::after {{ margin: 0; padding: 0; box-sizing: border-box; }}
 
-        :root {{
+        /* Dark palette (default) */
+        :root, [data-theme="dark"] {{
+            --bg: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --border: #30363d;
+            --border-light: #21262d;
+            --text-primary: #c9d1d9;
+            --text-secondary: #8b949e;
+            --text-tertiary: #484f58;
+            --accent: #f0883e;
+            --green: #3fb950;
+            --green-bg: rgba(63,185,80,0.1);
+            --green-border: rgba(63,185,80,0.3);
+            --amber: #d29922;
+            --amber-bg: rgba(210,153,34,0.1);
+            --amber-border: rgba(210,153,34,0.3);
+            --red: #f85149;
+            --red-bg: rgba(248,81,73,0.1);
+            --red-border: rgba(248,81,73,0.3);
+            --link: #58a6ff;
+            --mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', Menlo, monospace;
+        }}
+
+        /* Light palette */
+        [data-theme="light"] {{
             --bg: #ffffff;
             --bg-secondary: #f7f8fa;
+            --bg-tertiary: #eef0f4;
             --border: #d8dce3;
             --border-light: #e8ebf0;
             --text-primary: #111827;
             --text-secondary: #4b5563;
             --text-tertiary: #9ca3af;
+            --accent: #f0883e;
             --green: #16a34a;
             --green-bg: #f0fdf4;
             --green-border: #bbf7d0;
@@ -92,13 +119,13 @@ pub fn render(receipt: &Receipt, base_url: &str) -> String {
             --red-bg: #fef2f2;
             --red-border: #fecaca;
             --link: #2563eb;
-            --mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', 'Cascadia Code', Menlo, monospace;
         }}
 
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', system-ui, sans-serif;
             background: var(--bg); color: var(--text-primary); min-height: 100vh;
             -webkit-font-smoothing: antialiased;
+            transition: background 0.2s, color 0.2s;
         }}
 
         .page {{ max-width: 600px; margin: 0 auto; padding: 3rem 1.25rem 4rem; }}
@@ -107,11 +134,24 @@ pub fn render(receipt: &Receipt, base_url: &str) -> String {
             display: flex; align-items: center; justify-content: space-between;
             margin-bottom: 1.5rem;
         }}
+        .header-left {{
+            display: flex; align-items: center; gap: 0.75rem;
+        }}
         .wordmark {{
             font-size: 1rem; font-weight: 600; color: var(--text-primary);
             text-decoration: none;
         }}
         .wordmark span {{ color: var(--text-tertiary); font-weight: 400; }}
+        .header-right {{
+            display: flex; align-items: center; gap: 0.625rem;
+        }}
+        .theme-toggle {{
+            background: var(--bg-secondary); border: 1px solid var(--border);
+            border-radius: 6px; padding: 0.25rem 0.5rem; cursor: pointer;
+            font-size: 0.875rem; color: var(--text-primary);
+            transition: background 0.15s, border-color 0.15s; line-height: 1;
+        }}
+        .theme-toggle:hover {{ border-color: var(--accent); }}
 
         .status-badge {{
             display: inline-flex; align-items: center; gap: 0.375rem;
@@ -129,7 +169,7 @@ pub fn render(receipt: &Receipt, base_url: &str) -> String {
         /* Prediction hero */
         .prediction-card {{
             text-align: center; padding: 1.5rem 1rem; border: 1px solid var(--border);
-            border-radius: 8px; margin-bottom: 1rem;
+            border-radius: 8px; margin-bottom: 1rem; background: var(--bg-secondary);
         }}
         .prediction-label {{
             font-size: 1.375rem; font-weight: 600; color: var(--text-primary); letter-spacing: -0.01em;
@@ -188,9 +228,9 @@ pub fn render(receipt: &Receipt, base_url: &str) -> String {
             flex-shrink: 0; margin-left: 0.75rem; padding: 0.25rem 0.5rem;
             font-size: 0.6875rem; font-weight: 500; color: var(--text-secondary); background: var(--bg);
             border: 1px solid var(--border); border-radius: 4px; cursor: pointer;
-            transition: background 0.15s;
+            transition: background 0.15s, border-color 0.15s;
         }}
-        .copy-btn:hover {{ background: var(--bg-secondary); }}
+        .copy-btn:hover {{ background: var(--bg-secondary); border-color: var(--accent); }}
 
         .footer {{
             text-align: center; margin-top: 2.5rem; padding-top: 1.25rem;
@@ -203,11 +243,16 @@ pub fn render(receipt: &Receipt, base_url: &str) -> String {
 <body>
     <div class="page">
         <div class="page-header">
-            <a class="wordmark" href="/">clawproof <span>/ receipt</span></a>
-            <span class="status-badge {status_class}" aria-label="Proof status: {status_label}">
-                <span class="status-dot"></span>
-                {status_label}
-            </span>
+            <div class="header-left">
+                <a class="wordmark" href="/">ClawProof <span>/ receipt</span></a>
+            </div>
+            <div class="header-right">
+                <span class="status-badge {status_class}" aria-label="Proof status: {status_label}">
+                    <span class="status-dot"></span>
+                    {status_label}
+                </span>
+                <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode"></button>
+            </div>
         </div>
 
         <div class="prediction-card">
@@ -243,9 +288,31 @@ pub fn render(receipt: &Receipt, base_url: &str) -> String {
         </div>
 
         <div class="footer">
-            <a href="https://github.com/ICME-Lab/jolt-atlas" target="_blank">JOLT-Atlas</a>
+            <a href="/">ClawProof</a> &middot;
+            <a href="https://github.com/ICME-Lab/jolt-atlas" target="_blank">JOLT-Atlas</a> &middot;
+            Open source (MIT)
         </div>
     </div>
+
+    <script>
+    function initTheme() {{
+        var saved = localStorage.getItem('cp-theme');
+        var theme = saved || 'dark';
+        document.documentElement.setAttribute('data-theme', theme);
+        updateToggleIcon(theme);
+    }}
+    function toggleTheme() {{
+        var current = document.documentElement.getAttribute('data-theme');
+        var next = current === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('cp-theme', next);
+        updateToggleIcon(next);
+    }}
+    function updateToggleIcon(theme) {{
+        document.getElementById('theme-toggle').textContent = theme === 'dark' ? '\u2600' : '\u263E';
+    }}
+    initTheme();
+    </script>
 </body>
 </html>"#,
         auto_refresh = auto_refresh,
