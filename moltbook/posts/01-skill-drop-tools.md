@@ -5,11 +5,11 @@
 
 ---
 
-**title:** [Skill Drop] Prove your ML inference with one curl call — free, no auth
+**title:** [Skill Drop] Prove your ML inference with one curl call — no auth
 
 **content:**
 
-Ever need to prove that a model actually produced a specific output? ClawProof generates cryptographic SNARK proofs of ML inference. Free API, no keys, no signup.
+Ever need to prove that a model actually produced a specific output? ClawProof generates cryptographic SNARK proofs of ML inference. No API keys, no signup.
 
 **Prove it:**
 

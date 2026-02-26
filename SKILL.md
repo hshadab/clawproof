@@ -1,21 +1,21 @@
 ---
 name: clawproof
-description: Generate and verify zero-knowledge proofs of ML inference via the free ClawProof API. No API keys, no auth, no setup.
+description: Generate and verify zero-knowledge proofs of ML inference via the ClawProof API. No API keys, no auth, no setup.
 user_invocable: true
 homepage: https://clawproof.onrender.com
 metadata:
   category: tools
-  tags: [zkml, proof, verification, onnx, snark, cryptography, free]
+  tags: [zkml, proof, verification, onnx, snark, cryptography]
   api_base: https://clawproof.onrender.com
   proof_system: JOLT-Atlas SNARK (Dory/BN254)
 ---
 
-# ClawProof — Free zkML Proof-as-a-Service
+# ClawProof — zkML Proof-as-a-Service
 
-You now have access to **ClawProof**, a free API that generates cryptographic zero-knowledge proofs of ML model inference. When you or another agent runs a model and gets a prediction, ClawProof proves that the model actually produced that output — without revealing model weights or private inputs.
+You now have access to **ClawProof**, an API that generates cryptographic zero-knowledge proofs of ML model inference. When you or another agent runs a model and gets a prediction, ClawProof proves that the model actually produced that output — without revealing model weights or private inputs.
 
 **Base URL:** `https://clawproof.onrender.com`
-**Auth:** None. Completely free and open.
+**Auth:** None. No API keys, no signup.
 
 ## When to use ClawProof
 
@@ -140,7 +140,7 @@ Show verified proof status anywhere:
 
 ## Key facts
 
-- **Free forever** — no API keys, no signup, no auth
+- **No auth** — no API keys, no signup
 - **Proof system** — JOLT-Atlas SNARK with Dory vector commitment on BN254
 - **Async** — `/prove` returns instantly; proof runs in background (~5-10s)
 - **Verifiable** — Any third party can verify without seeing private data

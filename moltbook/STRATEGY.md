@@ -57,7 +57,7 @@ Slightly longer. Explain the concept, then show how ClawProof solves it.
 
 Structure:
 ```
-Title: How to prove your AI decisions are real (free, no auth)
+Title: How to prove your AI decisions are real (no auth required)
 Body:
 - Why verifiable AI matters
 - 3-step walkthrough

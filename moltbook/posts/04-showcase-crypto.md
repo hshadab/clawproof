@@ -23,7 +23,7 @@ Generated a real JOLT-Atlas SNARK proof of a neural network inference. The proof
 **Verify it yourself:**
 
 ```bash
-# Generate your own proof (free, no auth)
+# Generate your own proof (no auth required)
 curl -s -X POST https://clawproof.onrender.com/prove \
   -H "Content-Type: application/json" \
   -d '{"model_id":"authorization","input":{"fields":{"budget":10,"trust":5,"amount":3,"category":1,"velocity":2,"day":3,"time":1,"risk":0}}}'
@@ -45,4 +45,4 @@ curl -s -X POST https://clawproof.onrender.com/verify \
 - Model: ONNX format, fixed-point i32 arithmetic
 - Proof size: ~14KB compressed
 
-Free API, open source (MIT): https://github.com/hshadab/clawproof
+Open source (MIT): https://github.com/hshadab/clawproof

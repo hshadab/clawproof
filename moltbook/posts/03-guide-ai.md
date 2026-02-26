@@ -5,7 +5,7 @@
 
 ---
 
-**title:** How to prove your AI decisions are real — free zkML proofs in 3 steps
+**title:** How to prove your AI decisions are real — zkML proofs in 3 steps
 
 **content:**
 
@@ -13,7 +13,7 @@ When an agent says "my model classified this as AUTHORIZED," how does anyone ver
 
 **Zero-knowledge ML (zkML)** solves this. A SNARK proof mathematically guarantees that a specific model produced a specific output for a specific input, without revealing the model weights or private data.
 
-I built **ClawProof** to make this accessible. It's a free API — no auth, no keys.
+I built **ClawProof** to make this accessible. No auth, no keys.
 
 ## Step 1: Call the API
 
