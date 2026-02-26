@@ -23,25 +23,27 @@
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root, [data-theme="dark"] {
-            --bg: #0d1117;
-            --bg-secondary: #161b22;
-            --bg-tertiary: #21262d;
-            --border: #30363d;
-            --border-light: #21262d;
-            --text-primary: #c9d1d9;
-            --text-secondary: #8b949e;
-            --text-tertiary: #484f58;
+            --bg: #141518;
+            --bg-secondary: #1c1e24;
+            --bg-tertiary: #26292f;
+            --border: #36393f;
+            --border-light: #2a2d33;
+            --text-primary: #d8dce4;
+            --text-secondary: #9aa0ac;
+            --text-tertiary: #5e6370;
             --accent: #f0883e;
-            --green: #3fb950;
-            --green-bg: rgba(63,185,80,0.1);
-            --green-border: rgba(63,185,80,0.3);
-            --amber: #d29922;
-            --amber-bg: rgba(210,153,34,0.1);
-            --amber-border: rgba(210,153,34,0.3);
+            --accent-subtle: rgba(240,136,62,0.08);
+            --accent-border: rgba(240,136,62,0.2);
+            --green: #4eca64;
+            --green-bg: rgba(78,202,100,0.1);
+            --green-border: rgba(78,202,100,0.3);
+            --amber: #e0a832;
+            --amber-bg: rgba(224,168,50,0.12);
+            --amber-border: rgba(224,168,50,0.3);
             --red: #f85149;
             --red-bg: rgba(248,81,73,0.1);
             --red-border: rgba(248,81,73,0.3);
-            --link: #58a6ff;
+            --link: #64b5f6;
             --mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', Menlo, monospace;
         }
         [data-theme="light"] {
@@ -107,6 +109,7 @@
 
         .prediction-card {
             text-align: center; padding: 1.5rem 1rem; border: 1px solid var(--border);
+            border-top: 2px solid var(--accent);
             border-radius: 8px; margin-bottom: 1rem; background: var(--bg-secondary);
         }
         .prediction-label {
