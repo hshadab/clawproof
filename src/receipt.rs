@@ -106,7 +106,8 @@ impl SqliteStore {
                 error TEXT
             );
             CREATE INDEX IF NOT EXISTS idx_receipts_status ON receipts(status);
-            CREATE INDEX IF NOT EXISTS idx_receipts_model_id ON receipts(model_id);"
+            CREATE INDEX IF NOT EXISTS idx_receipts_model_id ON receipts(model_id);
+            CREATE INDEX IF NOT EXISTS idx_receipts_created_at ON receipts(created_at DESC);"
         )?;
         Ok(())
     }
@@ -248,6 +249,56 @@ impl SqliteStore {
 
         stats
     }
+
+    pub fn list_recent(&self, limit: u64) -> Vec<ReceiptSummary> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = match conn.prepare(
+            "SELECT id, model_id, model_name, status, created_at, output_json, prove_time_ms, verify_time_ms FROM receipts ORDER BY created_at DESC LIMIT ?1",
+        ) {
+            Ok(s) => s,
+            Err(e) => {
+                error!("[clawproof] list_recent query failed: {:?}", e);
+                return vec![];
+            }
+        };
+
+        let rows = stmt.query_map(rusqlite::params![limit as i64], |row| {
+            let status_str: String = row.get(3)?;
+            let created_str: String = row.get(4)?;
+            let output_json: String = row.get(5)?;
+            let prove_time: Option<i64> = row.get(6)?;
+            let verify_time: Option<i64> = row.get(7)?;
+
+            let output: InferenceOutput = serde_json::from_str(&output_json).unwrap_or(InferenceOutput {
+                raw_output: vec![],
+                predicted_class: 0,
+                label: "unknown".to_string(),
+                confidence: 0.0,
+            });
+
+            Ok(ReceiptSummary {
+                id: row.get(0)?,
+                model_id: row.get(1)?,
+                model_name: row.get(2)?,
+                label: output.label,
+                confidence: output.confidence,
+                status: status_str,
+                prove_time_ms: prove_time.map(|t| t as u128),
+                verify_time_ms: verify_time.map(|t| t as u128),
+                created_at: DateTime::parse_from_rfc3339(&created_str)
+                    .map(|dt| dt.with_timezone(&Utc))
+                    .unwrap_or_else(|_| Utc::now()),
+            })
+        });
+
+        match rows {
+            Ok(iter) => iter.flatten().collect(),
+            Err(e) => {
+                error!("[clawproof] list_recent rows failed: {:?}", e);
+                vec![]
+            }
+        }
+    }
 }
 
 impl Clone for SqliteStore {
@@ -256,6 +307,19 @@ impl Clone for SqliteStore {
             conn: Arc::clone(&self.conn),
         }
     }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ReceiptSummary {
+    pub id: String,
+    pub model_id: String,
+    pub model_name: String,
+    pub label: String,
+    pub confidence: f64,
+    pub status: String,
+    pub prove_time_ms: Option<u128>,
+    pub verify_time_ms: Option<u128>,
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Clone, Debug, Serialize, Default)]
@@ -330,5 +394,9 @@ impl ReceiptStore {
 
     pub fn get_stats(&self) -> ReceiptStats {
         self.db.get_stats()
+    }
+
+    pub fn list_recent(&self, limit: u64) -> Vec<ReceiptSummary> {
+        self.db.list_recent(limit)
     }
 }

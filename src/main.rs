@@ -288,6 +288,7 @@ async fn main() -> anyhow::Result<()> {
             post(handlers::batch::batch_prove).layer(batch_rate_limit),
         )
         .route("/receipt/:id", get(handlers::receipt::get_receipt))
+        .route("/receipts/recent", get(handlers::receipts_list::recent))
         .route("/verify", post(handlers::verify::verify))
         .route("/metrics", get(handlers::metrics::metrics))
         .route("/badge/:receipt_id", get(handlers::badge::badge))

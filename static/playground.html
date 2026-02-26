@@ -1,30 +1,88 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClawProof — free zkML proofs</title>
+    <title>ClawProof — zkML proofs</title>
     <style>
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-        :root {
+
+        /* Dark palette (default) */
+        :root, [data-theme="dark"] {
+            --bg: #0d1117; --bg2: #161b22; --bg3: #21262d;
+            --border: #30363d; --border-light: #21262d;
+            --text: #c9d1d9; --text2: #8b949e; --text3: #484f58;
+            --accent: #f0883e; --accent-h: #d2691e;
+            --link: #58a6ff;
+            --green: #3fb950; --green-bg: rgba(63,185,80,0.1);
+            --amber: #d29922; --amber-bg: rgba(210,153,34,0.1);
+            --red: #f85149; --red-bg: rgba(248,81,73,0.1);
+            --mono: 'SF Mono', 'Fira Code', Menlo, monospace;
+        }
+
+        /* Light palette */
+        [data-theme="light"] {
             --bg: #ffffff; --bg2: #f7f8fa; --bg3: #eef0f4;
             --border: #d8dce3; --border-light: #e8ebf0;
             --text: #111827; --text2: #4b5563; --text3: #9ca3af;
-            --accent: #111827; --accent-h: #374151;
+            --accent: #f0883e; --accent-h: #d2691e;
             --link: #2563eb;
             --green: #16a34a; --green-bg: #f0fdf4;
             --amber: #d97706; --amber-bg: #fffbeb;
-            --red: #dc2626;
-            --mono: 'SF Mono', 'Fira Code', Menlo, monospace;
+            --red: #dc2626; --red-bg: #fef2f2;
         }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; }
-        .page { max-width: 600px; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; transition: background 0.2s, color 0.2s; }
+        .page { max-width: 720px; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
 
         /* Header */
-        .header { margin-bottom: 2rem; }
+        .header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 2rem; }
+        .header-left { flex: 1; }
         .wordmark { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em; }
         .wordmark span { color: var(--text3); font-weight: 400; font-size: 1rem; }
         .tagline { color: var(--text2); font-size: 0.875rem; margin-top: 0.25rem; line-height: 1.5; }
+        .theme-toggle { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 0.375rem 0.625rem; cursor: pointer; font-size: 1rem; color: var(--text); transition: background 0.15s, border-color 0.15s; line-height: 1; }
+        .theme-toggle:hover { border-color: var(--accent); }
+
+        /* Tabs */
+        .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; }
+        .tab { padding: 0.5rem 1rem; font-size: 0.8125rem; font-weight: 500; color: var(--text3); background: none; border: none; cursor: pointer; border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s; }
+        .tab:hover { color: var(--text2); }
+        .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Stat cards */
+        .stats-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.625rem; margin-bottom: 1.5rem; }
+        .stat-card { background: var(--bg2); border: 1px solid var(--border-light); border-radius: 8px; padding: 0.75rem; text-align: center; }
+        .stat-value { font-size: 1.25rem; font-weight: 700; font-family: var(--mono); }
+        .stat-label { color: var(--text2); font-size: 0.6875rem; margin-top: 0.125rem; text-transform: uppercase; letter-spacing: 0.05em; }
+
+        /* Proof history table */
+        .section-title { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.75rem; }
+        .history-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+        .history-table th { text-align: left; padding: 0.5rem 0.625rem; color: var(--text2); font-weight: 500; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); }
+        .history-table td { padding: 0.5rem 0.625rem; border-bottom: 1px solid var(--border-light); }
+        .history-table tr:hover td { background: var(--bg2); }
+        .history-table a { color: var(--link); text-decoration: none; font-family: var(--mono); font-size: 0.75rem; }
+        .history-table a:hover { text-decoration: underline; }
+        .empty-state { text-align: center; color: var(--text3); font-size: 0.8125rem; padding: 2rem 0; }
+
+        /* Status dot */
+        .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 0.375rem; vertical-align: middle; }
+        .dot.proving { background: var(--amber); animation: pulse 1.5s ease-in-out infinite; }
+        .dot.verified { background: var(--green); }
+        .dot.failed { background: var(--red); }
+        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+        .status-text { font-size: 0.75rem; vertical-align: middle; }
+
+        /* Per-model bar chart */
+        .model-breakdown { margin-top: 1.5rem; }
+        .bar-row { display: flex; align-items: center; margin-bottom: 0.5rem; }
+        .bar-label { width: 120px; font-size: 0.75rem; color: var(--text2); font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0; }
+        .bar-track { flex: 1; height: 16px; background: var(--bg3); border-radius: 4px; overflow: hidden; margin: 0 0.5rem; }
+        .bar-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.3s ease; }
+        .bar-count { font-size: 0.75rem; font-family: var(--mono); color: var(--text2); width: 36px; text-align: right; flex-shrink: 0; }
 
         /* Demo banner */
         .demo { background: var(--bg2); border: 1px solid var(--border-light); border-radius: 10px; padding: 1.5rem; margin-bottom: 2rem; text-align: center; }
@@ -37,27 +95,14 @@
         .demo-label { font-size: 1.125rem; font-weight: 600; }
         .demo-meta { color: var(--text3); font-size: 0.75rem; margin-top: 0.25rem; }
         .demo-status { display: inline-flex; align-items: center; gap: 0.375rem; margin-top: 0.5rem; font-size: 0.8125rem; font-weight: 500; }
-        .dot { width: 6px; height: 6px; border-radius: 50%; }
-        .dot.proving { background: var(--amber); animation: pulse 1.5s ease-in-out infinite; }
-        .dot.verified { background: var(--green); }
-        .dot.failed { background: var(--red); }
-        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
         .demo-link { display: inline-block; margin-top: 0.5rem; font-family: var(--mono); font-size: 0.6875rem; color: var(--link); text-decoration: none; }
         .demo-link:hover { text-decoration: underline; }
 
-        /* Tabs */
-        .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; }
-        .tab { padding: 0.5rem 1rem; font-size: 0.8125rem; font-weight: 500; color: var(--text3); background: none; border: none; cursor: pointer; border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s; }
-        .tab:hover { color: var(--text2); }
-        .tab.active { color: var(--text); border-bottom-color: var(--accent); }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-
         /* Model cards */
         .models-grid { display: grid; gap: 0.75rem; }
-        .model-card { border: 1px solid var(--border-light); border-radius: 8px; padding: 1rem; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; }
-        .model-card:hover { border-color: var(--accent); box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
-        .model-card.selected { border-color: var(--accent); background: var(--bg2); }
+        .model-card { border: 1px solid var(--border-light); border-radius: 8px; padding: 1rem; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; background: var(--bg2); }
+        .model-card:hover { border-color: var(--accent); }
+        .model-card.selected { border-color: var(--accent); background: var(--bg3); }
         .model-card h3 { font-size: 0.875rem; font-weight: 600; }
         .model-card .desc { color: var(--text2); font-size: 0.75rem; margin-top: 0.25rem; line-height: 1.4; }
         .model-card .meta { color: var(--text3); font-size: 0.6875rem; margin-top: 0.5rem; font-family: var(--mono); }
@@ -70,7 +115,7 @@
             border-radius: 6px; color: var(--text); font-size: 0.875rem; font-family: inherit; outline: none;
             transition: border-color 0.15s; line-height: 1.5;
         }
-        select:focus, textarea:focus, input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(17,24,39,0.08); }
+        select:focus, textarea:focus, input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(240,136,62,0.15); }
         textarea { resize: vertical; min-height: 72px; }
         .fields-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
         .field-item .form-label { font-size: 0.75rem; }
@@ -81,7 +126,7 @@
         .submit-btn:disabled { background: var(--bg3); color: var(--text3); cursor: not-allowed; }
         .error-msg { color: var(--red); font-size: 0.8125rem; text-align: center; margin-top: 0.75rem; }
 
-        /* Result card (reused for Try It tab) */
+        /* Result card */
         .result-card { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-top: 1rem; display: none; }
         .result-top { padding: 1rem; text-align: center; }
         .result-prediction { font-size: 1.125rem; font-weight: 600; }
@@ -103,45 +148,86 @@
         .agent-section h4:first-child { margin-top: 0; }
         .agent-section p { color: var(--text2); font-size: 0.8125rem; line-height: 1.6; }
 
+        /* Supported ops */
+        .ops-section { margin-top: 1.5rem; border-top: 1px solid var(--border-light); padding-top: 1rem; }
+        .ops-section h4 { font-size: 0.8125rem; font-weight: 600; margin-bottom: 0.5rem; }
+        .ops-section h5 { font-size: 0.75rem; font-weight: 600; color: var(--text2); margin: 0.75rem 0 0.25rem; }
+        .ops-list { list-style: none; padding: 0; }
+        .ops-list li { font-size: 0.75rem; color: var(--text2); padding: 0.125rem 0; font-family: var(--mono); }
+        .ops-list li::before { content: "\2022"; color: var(--accent); margin-right: 0.5rem; }
+
         /* Footer */
         .footer { text-align: center; margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--border-light); color: var(--text3); font-size: 0.6875rem; }
         .footer a { color: var(--text3); text-decoration: none; }
         .footer a:hover { color: var(--text2); }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .stats-row { grid-template-columns: repeat(3, 1fr); }
+            .fields-grid { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
 <div class="page">
     <div class="header">
-        <div class="wordmark">ClawProof <span>/ zkML</span></div>
-        <p class="tagline">Free zero-knowledge proofs of ML inference. No API keys, no auth. Bring your own model or use ours.</p>
-    </div>
-
-    <!-- One-click demo -->
-    <div class="demo">
-        <h2>See it work</h2>
-        <p>Generate a real SNARK proof in one click. We'll classify a sample transaction and prove the result cryptographically.</p>
-        <button class="demo-btn" id="demo-btn" onclick="runDemo()">Prove it</button>
-        <div class="demo-result" id="demo-result">
-            <div class="demo-label" id="demo-label"></div>
-            <div class="demo-meta" id="demo-confidence"></div>
-            <div class="demo-status">
-                <span class="dot" id="demo-dot"></span>
-                <span id="demo-status-text"></span>
-            </div>
-            <br>
-            <a class="demo-link" id="demo-link" target="_blank"></a>
+        <div class="header-left">
+            <div class="wordmark">ClawProof <span>/ zkML</span></div>
+            <p class="tagline">Zero-knowledge proofs of ML inference. No API keys, no auth. Bring your own model or use ours.</p>
         </div>
+        <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode"></button>
     </div>
 
     <!-- Tabs -->
     <div class="tabs">
-        <button class="tab active" onclick="switchTab('try')">Try it</button>
-        <button class="tab" onclick="switchTab('upload')">Upload model</button>
-        <button class="tab" onclick="switchTab('agents')">For agents</button>
+        <button class="tab active" onclick="switchTab('dashboard')">Dashboard</button>
+        <button class="tab" onclick="switchTab('prove')">Prove</button>
+        <button class="tab" onclick="switchTab('upload')">Upload</button>
+        <button class="tab" onclick="switchTab('api')">API</button>
     </div>
 
-    <!-- Tab: Try It -->
-    <div class="tab-content active" id="tab-try">
+    <!-- Tab: Dashboard -->
+    <div class="tab-content active" id="tab-dashboard">
+        <div class="stats-row" id="stats-row">
+            <div class="stat-card"><div class="stat-value" id="stat-total">-</div><div class="stat-label">Total Proofs</div></div>
+            <div class="stat-card"><div class="stat-value" id="stat-verified">-</div><div class="stat-label">Verified</div></div>
+            <div class="stat-card"><div class="stat-value" id="stat-proving">-</div><div class="stat-label">Proving</div></div>
+            <div class="stat-card"><div class="stat-value" id="stat-avg-prove">-</div><div class="stat-label">Avg Prove</div></div>
+            <div class="stat-card"><div class="stat-value" id="stat-avg-verify">-</div><div class="stat-label">Avg Verify</div></div>
+        </div>
+
+        <div class="section-title">Proof History</div>
+        <table class="history-table">
+            <thead>
+                <tr><th>Time</th><th>Model</th><th>Result</th><th>Confidence</th><th>Status</th><th>Prove Time</th></tr>
+            </thead>
+            <tbody id="history-body">
+                <tr><td colspan="6" class="empty-state">Loading...</td></tr>
+            </tbody>
+        </table>
+
+        <div class="model-breakdown" id="model-breakdown"></div>
+    </div>
+
+    <!-- Tab: Prove -->
+    <div class="tab-content" id="tab-prove">
+        <!-- One-click demo -->
+        <div class="demo">
+            <h2>See it work</h2>
+            <p>Generate a real SNARK proof in one click. We'll classify a sample transaction and prove the result cryptographically.</p>
+            <button class="demo-btn" id="demo-btn" onclick="runDemo()">Prove it</button>
+            <div class="demo-result" id="demo-result">
+                <div class="demo-label" id="demo-label"></div>
+                <div class="demo-meta" id="demo-confidence"></div>
+                <div class="demo-status">
+                    <span class="dot" id="demo-dot"></span>
+                    <span id="demo-status-text"></span>
+                </div>
+                <br>
+                <a class="demo-link" id="demo-link" target="_blank"></a>
+            </div>
+        </div>
+
         <div class="models-grid" id="models-grid">Loading models...</div>
         <div id="input-area" style="margin-top:1rem;"></div>
         <button class="submit-btn" id="prove-btn" disabled onclick="prove()">Generate proof</button>
@@ -158,7 +244,7 @@
         </div>
     </div>
 
-    <!-- Tab: Upload Model -->
+    <!-- Tab: Upload -->
     <div class="tab-content" id="tab-upload">
         <div class="upload-zone" id="upload-zone" onclick="document.getElementById('upload-file').click()">
             <h3>Drop an ONNX model here</h3>
@@ -200,8 +286,8 @@
         </div>
     </div>
 
-    <!-- Tab: For Agents -->
-    <div class="tab-content" id="tab-agents">
+    <!-- Tab: API -->
+    <div class="tab-content" id="tab-api">
         <div class="agent-section">
             <h4>One-call proof (curl)</h4>
 <pre>curl -X POST https://clawproof.onrender.com/prove \
@@ -253,6 +339,7 @@ const receipt = await cp.proveAndWait("sentiment", {
                 <code>POST /prove/model</code> &middot;
                 <code>POST /prove/batch</code> &middot;
                 <code>GET /receipt/{id}</code> &middot;
+                <code>GET /receipts/recent</code> &middot;
                 <code>POST /verify</code> &middot;
                 <code>GET /badge/{id}</code> &middot;
                 <code>GET /metrics</code> &middot;
@@ -260,27 +347,172 @@ const receipt = await cp.proveAndWait("sentiment", {
                 <code>GET /openapi.json</code>
             </p>
         </div>
+
+        <div class="ops-section">
+            <h4>Supported ONNX Operations</h4>
+            <p style="font-size:0.75rem; color:var(--text2); margin-bottom:0.5rem;">ClawProof uses the JOLT-Atlas proving system, which supports a subset of ONNX operations. Models must use only supported ops to generate valid proofs.</p>
+
+            <h5>Verified in production</h5>
+            <ul class="ops-list">
+                <li><code>Gemm</code> (General Matrix Multiply)</li>
+                <li><code>Relu</code> (ReLU activation)</li>
+                <li><code>Add</code></li>
+                <li><code>MatMul</code> (with power-of-two padding)</li>
+            </ul>
+
+            <h5>Supported via JOLT-Atlas (transformer pipeline)</h5>
+            <ul class="ops-list">
+                <li><code>Softmax</code> (lookup-table based)</li>
+                <li><code>Reshape</code>, <code>Flatten</code>, <code>Transpose</code></li>
+                <li>Self-attention blocks</li>
+                <li>Embedding layers</li>
+            </ul>
+
+            <h5>Not supported</h5>
+            <ul class="ops-list">
+                <li><code>Conv</code>, <code>ConvTranspose</code> (CNN operations)</li>
+                <li><code>Sin</code>, <code>Cos</code> (trigonometric)</li>
+                <li><code>Slice</code>, <code>Concat</code> (dynamic array ops)</li>
+                <li><code>GRU</code>, <code>LSTM</code>, <code>RNN</code> (recurrent networks)</li>
+                <li><code>ReduceMean</code>, <code>ReduceSum</code> (reduction ops)</li>
+                <li><code>Div</code> (division)</li>
+                <li><code>GreaterOrEqual</code>, <code>Less</code> (comparison ops)</li>
+                <li>Quantization ops (<code>QLinearConv</code>, <code>DequantizeLinear</code>)</li>
+            </ul>
+
+            <h5>Model constraints</h5>
+            <ul class="ops-list">
+                <li>ONNX format only (convert from PyTorch/TensorFlow/sklearn via <code>/convert</code>)</li>
+                <li>Max ONNX file size: 5MB &mdash; large models (CNNs, LLMs, diffusion models) will not fit</li>
+                <li>All inputs are cast to integer (i32) tensors &mdash; float-heavy pipelines lose precision</li>
+                <li>Trace length must accommodate model complexity (default 2<sup>14</sup>; max practical ~2<sup>20</sup>)</li>
+                <li>Best results with small MLPs (&lt;5 layers) and lightweight transformer blocks</li>
+            </ul>
+
+            <h5>Conversion limits (<code>/convert</code>)</h5>
+            <ul class="ops-list">
+                <li>Conversion does not guarantee provability &mdash; the resulting ONNX must still use only supported ops</li>
+                <li>PyTorch models must be traced (no dynamic control flow); <code>torch.jit.trace</code> recommended before upload</li>
+                <li>sklearn models must be simple estimators (LogisticRegression, MLPClassifier, DecisionTree)</li>
+                <li>TensorFlow/Keras models with custom layers or tf.function guards will fail conversion</li>
+                <li>Models exceeding ~50k parameters will likely exceed the 5MB ONNX limit or trace length budget</li>
+                <li>Quantized, pruned, or mixed-precision models are not supported</li>
+            </ul>
+        </div>
     </div>
 
     <div class="footer">
         <a href="https://github.com/hshadab/clawproof">GitHub</a> &middot;
         <a href="/openapi.json">OpenAPI</a> &middot;
         <a href="https://github.com/ICME-Lab/jolt-atlas">JOLT-Atlas</a> &middot;
-        Free &amp; open source (MIT)
+        Open source (MIT)
     </div>
 </div>
 
 <script>
 let models = [];
 let selectedModel = null;
-let pollTimer = null;
+let dashboardTimer = null;
+
+// --- Theme ---
+function initTheme() {
+    const saved = localStorage.getItem('cp-theme');
+    const theme = saved || 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
+    updateToggleIcon(theme);
+}
+
+function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('cp-theme', next);
+    updateToggleIcon(next);
+}
+
+function updateToggleIcon(theme) {
+    document.getElementById('theme-toggle').textContent = theme === 'dark' ? '\u2600' : '\u263E';
+}
+
+initTheme();
 
 // --- Tabs ---
 function switchTab(name) {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    document.querySelector(`.tab-content#tab-${name}`).classList.add('active');
+    document.querySelector('.tab-content#tab-' + name).classList.add('active');
     event.target.classList.add('active');
+    if (name === 'dashboard') loadDashboard();
+}
+
+// --- Dashboard ---
+async function loadDashboard() {
+    try {
+        const [metricsRes, recentRes] = await Promise.all([
+            fetch('/metrics'),
+            fetch('/receipts/recent?limit=20')
+        ]);
+        const metrics = await metricsRes.json();
+        const recent = await recentRes.json();
+
+        // Stats
+        document.getElementById('stat-total').textContent = metrics.total_proofs || 0;
+        document.getElementById('stat-verified').textContent = metrics.verified || 0;
+        document.getElementById('stat-proving').textContent = metrics.proving || 0;
+        document.getElementById('stat-avg-prove').textContent = metrics.avg_prove_time_ms ? (metrics.avg_prove_time_ms / 1000).toFixed(1) + 's' : '-';
+        document.getElementById('stat-avg-verify').textContent = metrics.avg_verify_time_ms ? metrics.avg_verify_time_ms.toFixed(0) + 'ms' : '-';
+
+        // History table
+        const tbody = document.getElementById('history-body');
+        if (recent.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No proofs yet. Go to the Prove tab to generate one.</td></tr>';
+        } else {
+            tbody.innerHTML = recent.map(r => {
+                const time = new Date(r.created_at);
+                const timeStr = time.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+                const dateStr = time.toLocaleDateString([], {month:'short', day:'numeric'});
+                const statusClass = r.status;
+                const statusLabel = r.status === 'verified' ? 'Verified' : r.status === 'proving' ? 'Proving' : 'Failed';
+                const proveTime = r.prove_time_ms ? (r.prove_time_ms / 1000).toFixed(1) + 's' : '-';
+                const conf = (r.confidence * 100).toFixed(1) + '%';
+                return '<tr>' +
+                    '<td style="font-size:0.75rem;color:var(--text2)">' + dateStr + ' ' + timeStr + '</td>' +
+                    '<td style="font-family:var(--mono);font-size:0.75rem">' + r.model_name + '</td>' +
+                    '<td><a href="/receipt/' + r.id + '">' + r.label + '</a></td>' +
+                    '<td style="font-family:var(--mono);font-size:0.75rem">' + conf + '</td>' +
+                    '<td><span class="dot ' + statusClass + '"></span><span class="status-text">' + statusLabel + '</span></td>' +
+                    '<td style="font-family:var(--mono);font-size:0.75rem">' + proveTime + '</td>' +
+                    '</tr>';
+            }).join('');
+        }
+
+        // Per-model breakdown
+        const breakdown = document.getElementById('model-breakdown');
+        const byModel = metrics.by_model || {};
+        const entries = Object.entries(byModel).sort((a, b) => b[1] - a[1]);
+        if (entries.length > 0) {
+            const maxCount = entries[0][1];
+            breakdown.innerHTML = '<div class="section-title" style="margin-top:1.5rem">Per-Model Breakdown</div>' +
+                entries.map(([name, count]) => {
+                    const pct = maxCount > 0 ? (count / maxCount * 100) : 0;
+                    return '<div class="bar-row">' +
+                        '<span class="bar-label">' + name + '</span>' +
+                        '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%"></div></div>' +
+                        '<span class="bar-count">' + count + '</span>' +
+                        '</div>';
+                }).join('');
+        } else {
+            breakdown.innerHTML = '';
+        }
+    } catch (e) {
+        document.getElementById('history-body').innerHTML = '<tr><td colspan="6" class="empty-state">Failed to load dashboard data.</td></tr>';
+    }
+}
+
+// Auto-refresh dashboard every 30s
+function startDashboardRefresh() {
+    loadDashboard();
+    dashboardTimer = setInterval(loadDashboard, 30000);
 }
 
 // --- Demo ---
@@ -350,11 +582,11 @@ async function init() {
 function renderModelCards() {
     const grid = document.getElementById('models-grid');
     grid.innerHTML = models.map(m =>
-        `<div class="model-card" id="card-${m.id}" onclick="selectModel('${m.id}')">
-            <h3>${m.name}</h3>
-            <div class="desc">${m.description}</div>
-            <div class="meta">${m.input_type} &middot; ${m.labels.join(' / ')} &middot; trace ${m.trace_length}</div>
-        </div>`
+        '<div class="model-card" id="card-' + m.id + '" onclick="selectModel(\'' + m.id + '\')">' +
+            '<h3>' + m.name + '</h3>' +
+            '<div class="desc">' + m.description + '</div>' +
+            '<div class="meta">' + m.input_type + ' \u00B7 ' + m.labels.join(' / ') + ' \u00B7 trace ' + m.trace_length + '</div>' +
+        '</div>'
     ).join('');
 }
 
@@ -367,7 +599,6 @@ function selectModel(id) {
     document.getElementById('prove-btn').disabled = false;
 }
 
-// Default values per model for one-click usability
 const MODEL_DEFAULTS = {
     sentiment: { text: "The economy showed strong growth this quarter as tech stocks surged" },
     spam_detector: { raw: [1, 0, 3, 2, 1, 0, 2, 1] },
@@ -381,18 +612,18 @@ function renderInputs() {
     const defaults = MODEL_DEFAULTS[m.id] || {};
     if (m.input_type === 'text') {
         const val = defaults.text || '';
-        area.innerHTML = `<div class="form-group"><label class="form-label">Input text</label><textarea id="text-input" placeholder="Enter text to classify...">${val}</textarea></div>`;
+        area.innerHTML = '<div class="form-group"><label class="form-label">Input text</label><textarea id="text-input" placeholder="Enter text to classify...">' + val + '</textarea></div>';
     } else if (m.fields) {
         let html = '<div class="form-group"><label class="form-label">Parameters</label><div class="fields-grid">';
         for (const f of m.fields) {
             const val = (defaults.fields && defaults.fields[f.name] !== undefined) ? defaults.fields[f.name] : f.min;
-            html += `<div class="field-item"><label class="form-label">${f.name} <span class="field-range">${f.min}\u2013${f.max}</span></label><input type="number" data-field="${f.name}" min="${f.min}" max="${f.max}" value="${val}"></div>`;
+            html += '<div class="field-item"><label class="form-label">' + f.name + ' <span class="field-range">' + f.min + '\u2013' + f.max + '</span></label><input type="number" data-field="' + f.name + '" min="' + f.min + '" max="' + f.max + '" value="' + val + '"></div>';
         }
         html += '</div></div>';
         area.innerHTML = html;
     } else if (m.input_type === 'raw') {
         const val = defaults.raw ? JSON.stringify(defaults.raw) : '';
-        area.innerHTML = `<div class="form-group"><label class="form-label">Raw input vector (JSON array of ${m.input_dim} integers)</label><textarea id="raw-input" placeholder="[0, 1, 2, ...]" rows="3">${val}</textarea></div>`;
+        area.innerHTML = '<div class="form-group"><label class="form-label">Raw input vector (JSON array of ' + m.input_dim + ' integers)</label><textarea id="raw-input" placeholder="[0, 1, 2, ...]" rows="3">' + val + '</textarea></div>';
     }
 }
 
@@ -415,9 +646,9 @@ async function prove() {
     } else if (m.fields) {
         body.input.fields = {};
         for (const f of m.fields) {
-            const el = document.querySelector(`[data-field="${f.name}"]`);
+            const el = document.querySelector('[data-field="' + f.name + '"]');
             const val = parseInt(el?.value || '0');
-            if (val < f.min || val > f.max) { errEl.textContent = `${f.name} must be ${f.min}\u2013${f.max}.`; btn.disabled = false; btn.textContent = 'Generate proof'; return; }
+            if (val < f.min || val > f.max) { errEl.textContent = f.name + ' must be ' + f.min + '\u2013' + f.max + '.'; btn.disabled = false; btn.textContent = 'Generate proof'; return; }
             body.input.fields[f.name] = val;
         }
     } else if (m.input_type === 'raw') {
@@ -497,6 +728,8 @@ async function uploadAndProve() {
     btn.disabled = false; btn.textContent = 'Upload & prove';
 }
 
+// --- Init ---
+startDashboardRefresh();
 init();
 </script>
 </body>

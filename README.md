@@ -1,6 +1,6 @@
 # ClawProof
 
-Free zkML proof-as-a-service. Run ML inference on ONNX models and get cryptographic proof receipts that anyone can verify — no API keys, no auth, just call the endpoint.
+zkML proof-as-a-service. Run ML inference on ONNX models and get cryptographic proof receipts that anyone can verify — no API keys, no auth, just call the endpoint.
 
 **Proof system:** JOLT-Atlas SNARK with Dory commitment scheme on BN254
 
@@ -35,7 +35,7 @@ ClawProof solves this:
 - **Privacy-preserving** — Prove correctness without revealing model weights or private inputs.
 - **Accountability receipts** — Every proof generates a receipt with Keccak256 hashes of model, input, and output. Non-repudiable evidence of what your agent decided and why.
 - **Composable trust** — Other agents verify your proof in ~80ms without running inference. Chain verified decisions across multi-agent workflows.
-- **Free, no auth** — No API keys, no signup, no cost. Agents can self-serve autonomously.
+- **No auth** — No API keys, no signup, no cost. Agents can self-serve autonomously.
 - **Bring Your Own Model** — Upload any ONNX model (up to 5MB) and get SNARK proofs for your own architecture.
 
 Use case examples: an authorization agent proves it ran the model correctly before approving a transaction. A content moderation agent proves its classification. A trading agent proves its risk score. Any downstream agent or auditor can verify in milliseconds.
@@ -217,7 +217,7 @@ curl -X POST https://clawproof.onrender.com/models/upload \
 
 ### `POST /convert`
 
-Convert PyTorch (.pt), TensorFlow (.pb), or sklearn (.pkl) models to ONNX. Requires the converter sidecar (`CONVERTER_URL`).
+Convert PyTorch (.pt), TensorFlow (.pb), or sklearn (.pkl) models to ONNX. Requires the converter sidecar (`CONVERTER_URL`). Conversion does not guarantee the resulting ONNX is provable — it must still use only supported ops and fit within the 5MB / trace length budget. Best suited for small sklearn estimators and traced PyTorch MLPs.
 
 ### All endpoints
 
@@ -242,6 +242,49 @@ Convert PyTorch (.pt), TensorFlow (.pb), or sklearn (.pkl) models to ONNX. Requi
 | `authorization` | Structured fields | 8 fields (budget, trust, amount, category, velocity, day, time, risk) | AUTHORIZED / DENIED | 2^14 |
 | `sentiment` | Text (TF-IDF) | News article text (512-dim TF-IDF vector) | BUSINESS / ENTERTAINMENT / POLITICS / SPORT / TECH | 2^14 |
 | `spam_detector` | Raw vector | 8-dimensional integer vector | CLASS_0 / CLASS_1 / CLASS_2 / CLASS_3 | 2^12 |
+
+## Supported ONNX operations
+
+ClawProof uses the [JOLT-Atlas](https://github.com/ICME-Lab/jolt-atlas) proving system, which supports a subset of ONNX operations. Models must use only supported ops to generate valid proofs.
+
+**Verified in production:**
+- `Gemm` (General Matrix Multiply)
+- `Relu` (ReLU activation)
+- `Add`
+- `MatMul` (with power-of-two padding)
+
+**Supported via JOLT-Atlas (transformer pipeline):**
+- `Softmax` (lookup-table based)
+- `Reshape`, `Flatten`, `Transpose`
+- Self-attention blocks
+- Embedding layers
+
+**Not supported:**
+- `Conv`, `ConvTranspose` (CNN operations)
+- `Sin`, `Cos` (trigonometric)
+- `Slice`, `Concat` (dynamic array ops)
+- `GRU`, `LSTM`, `RNN` (recurrent networks)
+- `ReduceMean`, `ReduceSum` (reduction ops)
+- `Div` (division)
+- `GreaterOrEqual`, `Less` (comparison ops)
+- Quantization ops (`QLinearConv`, `DequantizeLinear`)
+
+**Model constraints:**
+- ONNX format only (convert from PyTorch/TensorFlow/sklearn via `/convert`)
+- Max ONNX file size: 5MB — large models (CNNs, LLMs, diffusion models) will not fit
+- All inputs are cast to integer (i32) tensors — float-heavy pipelines lose precision
+- Trace length must accommodate model complexity (default 2^14; max practical ~2^20)
+- Best results with small MLPs (<5 layers) and lightweight transformer blocks
+- Models exceeding ~50k parameters will likely exceed the 5MB ONNX limit or trace length budget
+
+**Conversion limits (`/convert`):**
+- Conversion does not guarantee provability — the resulting ONNX must still use only supported ops
+- PyTorch models must be traced (no dynamic control flow); `torch.jit.trace` recommended before upload
+- sklearn models must be simple estimators (LogisticRegression, MLPClassifier, DecisionTree)
+- TensorFlow/Keras models with custom layers or `tf.function` guards will fail conversion
+- Quantized, pruned, or mixed-precision models are not supported
+
+For the full JOLT-Atlas framework, see [github.com/ICME-Lab/jolt-atlas](https://github.com/ICME-Lab/jolt-atlas).
 
 ## Environment variables
 
@@ -296,7 +339,7 @@ Your agent gets:
 - **One-call proof generation** — `POST /prove` with model ID and input, get a receipt back
 - **Verifiable receipts** — Keccak256 hashes of model, input, output, and SNARK proof
 - **Proof badges** — Embeddable SVG badges for posts and dashboards
-- **BYOM** — Upload your own ONNX model and prove inference on it for free
+- **BYOM** — Upload your own ONNX model and prove inference on it
 - **Composable verification** — Any other agent can verify your proof in ~80ms without re-running the model
 
 Agents that prove their decisions build trust. Agents that don't are asking others to take their word for it.

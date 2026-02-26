@@ -3,7 +3,7 @@
   "info": {
     "title": "ClawProof — zkML Proof-as-a-Service API",
     "version": "0.1.0",
-    "description": "ClawProof generates cryptographic zero-knowledge proofs (zkML) of ML inference. Submit an input to a registered ONNX model and receive a JOLT SNARK proof receipt that any third party can verify — no API keys, no auth, no cost.\n\nDesigned for autonomous agents: if your agent makes ML-based decisions (classification, authorization, risk scoring), ClawProof lets you prove those decisions are correct with a cryptographic SNARK. Other agents and services can verify your proof in ~80ms without re-running inference. Upload your own ONNX model (BYOM) or use built-in models. Every proof generates a receipt with Keccak256 hashes of model, input, and output — non-repudiable evidence of what was decided and why.\n\nProof system: JOLT-Atlas SNARK with Dory/BN254 commitment scheme.",
+    "description": "ClawProof generates cryptographic zero-knowledge proofs (zkML) of ML inference. Submit an input to a registered ONNX model and receive a JOLT SNARK proof receipt that any third party can verify — no API keys, no auth.\n\nDesigned for autonomous agents: if your agent makes ML-based decisions (classification, authorization, risk scoring), ClawProof lets you prove those decisions are correct with a cryptographic SNARK. Other agents and services can verify your proof in ~80ms without re-running inference. Upload your own ONNX model (BYOM) or use built-in models. Every proof generates a receipt with Keccak256 hashes of model, input, and output — non-repudiable evidence of what was decided and why.\n\nProof system: JOLT-Atlas SNARK with Dory/BN254 commitment scheme.\n\nSupported ONNX operations: Gemm, Relu, Add, MatMul, Softmax, Reshape, Flatten, Transpose, self-attention blocks, and embedding layers. CNN ops (Conv), recurrent ops (LSTM/GRU/RNN), and dynamic array ops are not supported. Best results with simple MLPs and transformer architectures. See the project README for the full list.",
     "contact": {
       "name": "ClawProof",
       "url": "https://clawproof.onrender.com"
@@ -97,7 +97,7 @@
       "post": {
         "operationId": "prove",
         "summary": "Submit input for zkML proof generation",
-        "description": "Runs ML inference on the specified model with the provided input, then spawns an asynchronous JOLT SNARK proof generation job. Returns immediately with a receipt ID, the model output (predicted class, label, confidence), and status 'proving'. The proof runs in the background; poll GET /receipt/{id} or provide a webhook_url to be notified when proving completes. Input format depends on the model's input_type: use 'text' for text models, 'fields' for structured_fields models, or 'raw' for raw vector models. Check GET /models to see what each model expects.",
+        "description": "Runs ML inference on the specified model with the provided input, then spawns an asynchronous JOLT SNARK proof generation job. Returns immediately with a receipt ID, the model output (predicted class, label, confidence), and status 'proving'. The proof runs in the background; poll GET /receipt/{id} or provide a webhook_url to be notified when proving completes. Input format depends on the model's input_type: use 'text' for text models, 'fields' for structured_fields models, or 'raw' for raw vector models. Check GET /models to see what each model expects. Models must use only supported ONNX operations (Gemm, Relu, Add, MatMul, Softmax, Reshape, Flatten, Transpose) for valid proofs.",
         "tags": ["Proving"],
         "requestBody": {
           "required": true,
@@ -701,7 +701,7 @@
       "post": {
         "operationId": "uploadModel",
         "summary": "Upload an ONNX model",
-        "description": "Upload a custom ONNX model to ClawProof via multipart form. The model will be validated (loaded with onnx_tracer), registered in the model registry, and SNARK preprocessing will start in the background. The model becomes available for proving once preprocessing completes (check GET /health). Maximum ONNX file size is 5 MB. The model is registered with input_type 'raw', meaning callers must provide a raw integer vector matching the declared input_dim.",
+        "description": "Upload a custom ONNX model to ClawProof via multipart form. The model will be validated (loaded with onnx_tracer), registered in the model registry, and SNARK preprocessing will start in the background. The model becomes available for proving once preprocessing completes (check GET /health). Maximum ONNX file size is 5 MB. The model is registered with input_type 'raw', meaning callers must provide a raw integer vector matching the declared input_dim. Note: Only models using supported ONNX operations (Gemm, Relu, Add, MatMul, Softmax, Reshape, Flatten, Transpose) will produce valid proofs. CNN, recurrent, and dynamic array ops are not supported.",
         "tags": ["Models"],
         "requestBody": {
           "required": true,
@@ -815,7 +815,7 @@
       "post": {
         "operationId": "convertModel",
         "summary": "Convert a model to ONNX format",
-        "description": "Proxies a multipart form upload to the model converter sidecar service. Upload a model file (e.g., PyTorch .pt, TensorFlow .h5, scikit-learn .pkl) and receive the converted ONNX bytes in the response. Requires the CONVERTER_URL environment variable to be configured on the server. The converter sidecar handles the actual conversion; this endpoint is a transparent proxy.",
+        "description": "Proxies a multipart form upload to the model converter sidecar service. Upload a model file (e.g., PyTorch .pt, TensorFlow .h5, scikit-learn .pkl) and receive the converted ONNX bytes in the response. Requires the CONVERTER_URL environment variable to be configured on the server. The converter sidecar handles the actual conversion; this endpoint is a transparent proxy.\n\nImportant: Conversion does not guarantee the resulting ONNX model is provable. The converted model must still use only supported ONNX operations and fit within the 5MB file size limit. Large models (CNNs, LLMs, diffusion models, anything over ~50k parameters) will likely exceed these limits. PyTorch models should be traced with torch.jit.trace before upload (no dynamic control flow). sklearn models should be simple estimators (LogisticRegression, MLPClassifier, DecisionTree). Quantized, pruned, or mixed-precision models are not supported.",
         "tags": ["Models"],
         "requestBody": {
           "required": true,
