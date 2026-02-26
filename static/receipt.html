@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{OG_TITLE}}</title>
+
+    <!-- OpenGraph -->
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="{{OG_TITLE}}" />
+    <meta property="og:description" content="{{OG_DESCRIPTION}}" />
+    <meta property="og:url" content="{{OG_URL}}" />
+    <meta property="og:image" content="{{OG_IMAGE}}" />
+    <meta property="og:site_name" content="ClawProof" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="{{OG_TITLE}}" />
+    <meta name="twitter:description" content="{{OG_DESCRIPTION}}" />
+    <meta name="twitter:image" content="{{OG_IMAGE}}" />
+
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root, [data-theme="dark"] {
+            --bg: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --border: #30363d;
+            --border-light: #21262d;
+            --text-primary: #c9d1d9;
+            --text-secondary: #8b949e;
+            --text-tertiary: #484f58;
+            --accent: #f0883e;
+            --green: #3fb950;
+            --green-bg: rgba(63,185,80,0.1);
+            --green-border: rgba(63,185,80,0.3);
+            --amber: #d29922;
+            --amber-bg: rgba(210,153,34,0.1);
+            --amber-border: rgba(210,153,34,0.3);
+            --red: #f85149;
+            --red-bg: rgba(248,81,73,0.1);
+            --red-border: rgba(248,81,73,0.3);
+            --link: #58a6ff;
+            --mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', Menlo, monospace;
+        }
+        [data-theme="light"] {
+            --bg: #ffffff;
+            --bg-secondary: #f7f8fa;
+            --bg-tertiary: #eef0f4;
+            --border: #d8dce3;
+            --border-light: #e8ebf0;
+            --text-primary: #111827;
+            --text-secondary: #4b5563;
+            --text-tertiary: #9ca3af;
+            --accent: #f0883e;
+            --green: #16a34a;
+            --green-bg: #f0fdf4;
+            --green-border: #bbf7d0;
+            --amber: #d97706;
+            --amber-bg: #fffbeb;
+            --amber-border: #fde68a;
+            --red: #dc2626;
+            --red-bg: #fef2f2;
+            --red-border: #fecaca;
+            --link: #2563eb;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', system-ui, sans-serif;
+            background: var(--bg); color: var(--text-primary); min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .page { max-width: 600px; margin: 0 auto; padding: 3rem 1.25rem 4rem; }
+
+        .page-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 1.5rem;
+        }
+        .header-left { display: flex; align-items: center; gap: 0.75rem; }
+        .wordmark {
+            font-size: 1rem; font-weight: 600; color: var(--text-primary);
+            text-decoration: none;
+        }
+        .wordmark span { color: var(--text-tertiary); font-weight: 400; }
+        .header-right { display: flex; align-items: center; gap: 0.625rem; }
+        .theme-toggle {
+            background: var(--bg-secondary); border: 1px solid var(--border);
+            border-radius: 6px; padding: 0.25rem 0.5rem; cursor: pointer;
+            font-size: 0.875rem; color: var(--text-primary);
+            transition: background 0.15s, border-color 0.15s; line-height: 1;
+        }
+        .theme-toggle:hover { border-color: var(--accent); }
+
+        .status-badge {
+            display: inline-flex; align-items: center; gap: 0.375rem;
+            padding: 0.25rem 0.625rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500;
+        }
+        .status-badge.proving { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-border); }
+        .status-badge.verified { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+        .status-badge.failed { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+        .status-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+        .status-badge.proving .status-dot { animation: pulse 1.5s ease-in-out infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+        .prediction-card {
+            text-align: center; padding: 1.5rem 1rem; border: 1px solid var(--border);
+            border-radius: 8px; margin-bottom: 1rem; background: var(--bg-secondary);
+        }
+        .prediction-label {
+            font-size: 1.375rem; font-weight: 600; color: var(--text-primary); letter-spacing: -0.01em;
+        }
+        .prediction-confidence {
+            color: var(--text-tertiary); font-size: 0.8125rem; margin-top: 0.125rem;
+        }
+
+        .card {
+            border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1rem; overflow: hidden;
+        }
+        .card-header {
+            font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+            color: var(--text-tertiary); padding: 0.75rem 1rem 0.5rem; background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-light);
+        }
+        .row {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            padding: 0.5rem 1rem; border-bottom: 1px solid var(--border-light); gap: 1rem;
+        }
+        .row.last { border-bottom: none; }
+        .row-label { font-size: 0.8125rem; color: var(--text-tertiary); flex-shrink: 0; white-space: nowrap; }
+        .row-value {
+            font-size: 0.8125rem; color: var(--text-primary); text-align: right; word-break: break-all;
+            min-width: 0;
+        }
+        .mono { font-family: var(--mono); font-size: 0.75rem; }
+
+        .proving-notice {
+            display: flex; align-items: center; gap: 0.625rem; padding: 0.875rem 1rem;
+            color: var(--text-secondary); font-size: 0.8125rem;
+        }
+        .spinner {
+            width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--amber);
+            border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .error-notice { padding: 0.875rem 1rem; color: var(--red); font-size: 0.8125rem; }
+
+        .proof-string-bar {
+            display: flex; align-items: center; gap: 0.5rem;
+            padding: 0.5rem 0.75rem; border: 1px solid var(--border);
+            border-radius: 6px; background: var(--bg-secondary); margin-bottom: 0.75rem;
+        }
+        .proof-string-label {
+            font-size: 0.6875rem; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--text-tertiary); flex-shrink: 0;
+        }
+        .proof-string-value {
+            font-family: var(--mono); font-size: 0.75rem; color: var(--accent);
+            word-break: break-all; flex: 1; min-width: 0;
+        }
+
+        .share-section { margin-bottom: 1rem; }
+        .share-section-header {
+            font-size: 0.6875rem; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--text-tertiary); margin-bottom: 0.5rem;
+        }
+        .share-url-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0.5rem 0.75rem; border: 1px solid var(--border-light);
+            border-radius: 6px; background: var(--bg-secondary); margin-bottom: 0.5rem;
+        }
+        .share-url {
+            font-family: var(--mono); font-size: 0.6875rem; color: var(--text-secondary);
+            word-break: break-all; min-width: 0;
+        }
+        .share-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .share-btn {
+            display: inline-flex; align-items: center; gap: 0.375rem;
+            padding: 0.375rem 0.625rem; font-size: 0.75rem; font-weight: 500;
+            color: var(--text-secondary); background: var(--bg-secondary);
+            border: 1px solid var(--border); border-radius: 6px; cursor: pointer;
+            transition: background 0.15s, border-color 0.15s, color 0.15s;
+            text-decoration: none; line-height: 1.2;
+        }
+        .share-btn:hover { background: var(--bg-tertiary); border-color: var(--accent); color: var(--text-primary); }
+        .share-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .share-btn.primary:hover { opacity: 0.9; }
+        .share-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+        .copy-btn {
+            flex-shrink: 0; margin-left: 0.75rem; padding: 0.25rem 0.5rem;
+            font-size: 0.6875rem; font-weight: 500; color: var(--text-secondary); background: var(--bg);
+            border: 1px solid var(--border); border-radius: 4px; cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .copy-btn:hover { background: var(--bg-secondary); border-color: var(--accent); }
+
+        .toast {
+            position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%) translateY(100px);
+            background: var(--bg-tertiary); color: var(--text-primary); padding: 0.5rem 1rem;
+            border-radius: 6px; font-size: 0.8125rem; border: 1px solid var(--border);
+            opacity: 0; transition: transform 0.3s ease, opacity 0.3s ease; z-index: 100;
+            pointer-events: none;
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+        .footer {
+            text-align: center; margin-top: 2.5rem; padding-top: 1.25rem;
+            border-top: 1px solid var(--border-light); color: var(--text-tertiary); font-size: 0.75rem;
+        }
+        .footer a { color: var(--text-tertiary); text-decoration: none; }
+        .footer a:hover { color: var(--text-secondary); }
+
+        .loading-state {
+            text-align: center; padding: 4rem 1rem; color: var(--text-tertiary); font-size: 0.875rem;
+        }
+        .loading-state .spinner { display: inline-block; margin-bottom: 1rem; }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="page-header">
+            <div class="header-left">
+                <a class="wordmark" href="/">ClawProof <span>/ receipt</span></a>
+            </div>
+            <div class="header-right">
+                <span class="status-badge" id="status-badge" style="display:none">
+                    <span class="status-dot"></span>
+                    <span id="status-text"></span>
+                </span>
+                <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode"></button>
+            </div>
+        </div>
+
+        <div id="loading" class="loading-state">
+            <div class="spinner"></div>
+            <div>Loading receipt...</div>
+        </div>
+
+        <div id="content" style="display:none">
+            <div class="prediction-card">
+                <div class="prediction-label" id="pred-label"></div>
+                <div class="prediction-confidence" id="pred-confidence"></div>
+            </div>
+
+            <div class="proof-string-bar">
+                <span class="proof-string-label">Proof ID</span>
+                <span class="proof-string-value" id="proof-string"></span>
+                <button class="copy-btn" onclick="copyText(document.getElementById('proof-string').textContent, 'Proof string copied')">Copy</button>
+            </div>
+
+            <div class="card">
+                <div class="card-header">Model</div>
+                <div class="row"><span class="row-label">Name</span><span class="row-value" id="model-name"></span></div>
+                <div class="row"><span class="row-label">ID</span><span class="row-value mono" id="model-id"></span></div>
+                <div class="row last"><span class="row-label">Hash</span><span class="row-value mono" id="model-hash"></span></div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">Hashes</div>
+                <div class="row"><span class="row-label">Input</span><span class="row-value mono" id="input-hash"></span></div>
+                <div class="row last"><span class="row-label">Output</span><span class="row-value mono" id="output-hash"></span></div>
+            </div>
+
+            <div id="proof-section"></div>
+
+            <div class="card">
+                <div class="card-header">Metadata</div>
+                <div class="row"><span class="row-label">Receipt ID</span><span class="row-value mono" id="receipt-id"></span></div>
+                <div class="row"><span class="row-label">Created</span><span class="row-value" id="created-at"></span></div>
+                <div class="row last"><span class="row-label">Completed</span><span class="row-value" id="completed-at"></span></div>
+            </div>
+
+            <div class="share-section">
+                <div class="share-section-header">Share this proof</div>
+                <div class="share-url-bar">
+                    <span class="share-url" id="share-url"></span>
+                    <button class="copy-btn" onclick="copyText(document.getElementById('share-url').textContent, 'Link copied')">Copy</button>
+                </div>
+                <div class="share-buttons">
+                    <a class="share-btn primary" id="x-share-btn" href="#" target="_blank" rel="noopener">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                        Share on X
+                    </a>
+                    <button class="share-btn" onclick="copyVerifyMe()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+                        Copy "Verify me"
+                    </button>
+                    <button class="share-btn" onclick="copyText(document.getElementById('proof-string').textContent, 'Proof string copied')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                        Copy proof string
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <a href="/">ClawProof</a> &middot;
+            <a href="https://github.com/ICME-Lab/jolt-atlas" target="_blank">JOLT-Atlas</a> &middot;
+            Open source (MIT)
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+    // --- Theme ---
+    function initTheme() {
+        var saved = localStorage.getItem('cp-theme');
+        var theme = saved || 'dark';
+        document.documentElement.setAttribute('data-theme', theme);
+        updateToggleIcon(theme);
+    }
+    function toggleTheme() {
+        var current = document.documentElement.getAttribute('data-theme');
+        var next = current === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('cp-theme', next);
+        updateToggleIcon(next);
+    }
+    function updateToggleIcon(theme) {
+        document.getElementById('theme-toggle').textContent = theme === 'dark' ? '\u2600' : '\u263E';
+    }
+    initTheme();
+
+    // --- Toast ---
+    function showToast(msg) {
+        var el = document.getElementById('toast');
+        el.textContent = msg;
+        el.classList.add('show');
+        setTimeout(function() { el.classList.remove('show'); }, 2000);
+    }
+    function copyText(text, msg) {
+        navigator.clipboard.writeText(text).then(function() { showToast(msg || 'Copied'); });
+    }
+
+    // --- Share helpers (populated after fetch) ---
+    var receiptData = null;
+    var receiptUrl = window.location.href;
+
+    function copyVerifyMe() {
+        if (!receiptData) return;
+        var label = receiptData.output.label;
+        var conf = (receiptData.output.confidence * 100).toFixed(1);
+        var text = 'I made this decision: ' + label + ' (' + conf + '% confidence) \u2014 ML inference cryptographically verified with a @novanet_zkp zkML proof. Don\'t trust me, verify it: ' + receiptUrl;
+        copyText(text, '"Verify me" message copied');
+    }
+
+    // --- Render receipt ---
+    function formatDate(iso) {
+        if (!iso) return '\u2014';
+        var d = new Date(iso);
+        return d.getUTCFullYear() + '-' +
+            String(d.getUTCMonth()+1).padStart(2,'0') + '-' +
+            String(d.getUTCDate()).padStart(2,'0') + ' ' +
+            String(d.getUTCHours()).padStart(2,'0') + ':' +
+            String(d.getUTCMinutes()).padStart(2,'0') + ':' +
+            String(d.getUTCSeconds()).padStart(2,'0') + ' UTC';
+    }
+
+    function renderReceipt(r) {
+        receiptData = r;
+        var status = r.status.toLowerCase ? r.status.toLowerCase() : (typeof r.status === 'object' ? Object.keys(r.status)[0].toLowerCase() : 'proving');
+        // Handle serde enum serialization — status may be a string or {"Verified": ...}
+        if (typeof r.status === 'string') {
+            status = r.status.toLowerCase();
+        } else if (typeof r.status === 'object') {
+            status = Object.keys(r.status)[0].toLowerCase();
+        }
+
+        var label = r.output.label;
+        var conf = (r.output.confidence * 100).toFixed(1);
+        var proofString = 'clawproof:' + r.id + ':' + label + ':' + status;
+
+        // Status badge
+        var badge = document.getElementById('status-badge');
+        badge.className = 'status-badge ' + status;
+        badge.style.display = '';
+        document.getElementById('status-text').textContent = status.charAt(0).toUpperCase() + status.slice(1);
+
+        // Prediction
+        document.getElementById('pred-label').textContent = label;
+        document.getElementById('pred-confidence').textContent = conf + '% confidence';
+
+        // Proof string
+        document.getElementById('proof-string').textContent = proofString;
+
+        // Model
+        document.getElementById('model-name').textContent = r.model_name;
+        document.getElementById('model-id').textContent = r.model_id;
+        document.getElementById('model-hash').textContent = r.model_hash;
+
+        // Hashes
+        document.getElementById('input-hash').textContent = r.input_hash;
+        document.getElementById('output-hash').textContent = r.output_hash;
+
+        // Proof section
+        var proofEl = document.getElementById('proof-section');
+        if (status === 'verified') {
+            proofEl.innerHTML =
+                '<div class="card">' +
+                '<div class="card-header">Proof</div>' +
+                '<div class="row"><span class="row-label">Proof hash</span><span class="row-value mono">' + (r.proof_hash || '\u2014') + '</span></div>' +
+                '<div class="row"><span class="row-label">Size</span><span class="row-value">' + (r.proof_size != null ? r.proof_size + ' bytes' : '\u2014') + '</span></div>' +
+                '<div class="row"><span class="row-label">Prove time</span><span class="row-value">' + (r.prove_time_ms != null ? r.prove_time_ms + ' ms' : '\u2014') + '</span></div>' +
+                '<div class="row last"><span class="row-label">Verify time</span><span class="row-value">' + (r.verify_time_ms != null ? r.verify_time_ms + ' ms' : '\u2014') + '</span></div>' +
+                '</div>';
+        } else if (status === 'proving') {
+            proofEl.innerHTML =
+                '<div class="card">' +
+                '<div class="card-header">Proof</div>' +
+                '<div class="proving-notice" role="status">' +
+                '<div class="spinner"></div>' +
+                '<span>Generating SNARK proof. This page refreshes automatically.</span>' +
+                '</div></div>';
+        } else if (status === 'failed') {
+            proofEl.innerHTML =
+                '<div class="card">' +
+                '<div class="card-header">Error</div>' +
+                '<div class="error-notice">' + (r.error || 'Unknown error') + '</div>' +
+                '</div>';
+        }
+
+        // Metadata
+        document.getElementById('receipt-id').textContent = r.id;
+        document.getElementById('created-at').textContent = formatDate(r.created_at);
+        document.getElementById('completed-at').textContent = formatDate(r.completed_at);
+
+        // Share
+        document.getElementById('share-url').textContent = receiptUrl;
+        var xText = 'My agent classified this as ' + label + ' (' + conf + '% confidence) \u2014 ML inference cryptographically verified with a @novanet_zkp zkML proof.\n\nDon\'t trust me, verify it:\n' + receiptUrl;
+        document.getElementById('x-share-btn').href = 'https://x.com/intent/tweet?text=' + encodeURIComponent(xText);
+
+        // Show content, hide loading
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('content').style.display = '';
+
+        // Auto-refresh if still proving
+        if (status === 'proving') {
+            setTimeout(fetchReceipt, 3000);
+        }
+    }
+
+    // --- Fetch receipt ---
+    function getReceiptId() {
+        var parts = window.location.pathname.split('/');
+        // /receipt/{id}
+        for (var i = 0; i < parts.length; i++) {
+            if (parts[i] === 'receipt' && i + 1 < parts.length) {
+                return parts[i + 1];
+            }
+        }
+        return null;
+    }
+
+    function fetchReceipt() {
+        var id = getReceiptId();
+        if (!id) {
+            document.getElementById('loading').innerHTML = '<div class="error-notice">No receipt ID found in URL.</div>';
+            return;
+        }
+        fetch('/receipt/' + id, { headers: { 'Accept': 'application/json' } })
+            .then(function(resp) {
+                if (!resp.ok) throw new Error('Receipt not found');
+                return resp.json();
+            })
+            .then(renderReceipt)
+            .catch(function(err) {
+                document.getElementById('loading').innerHTML = '<div class="error-notice">Receipt not found. Check the ID and try again.</div>';
+            });
+    }
+
+    fetchReceipt();
+    </script>
+</body>
+</html>
