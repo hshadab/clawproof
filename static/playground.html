@@ -350,54 +350,55 @@ const receipt = await cp.proveAndWait("sentiment", {
 
         <div class="ops-section">
             <h4>Supported ONNX Operations</h4>
-            <p style="font-size:0.75rem; color:var(--text2); margin-bottom:0.5rem;">ClawProof uses the JOLT-Atlas proving system, which supports a subset of ONNX operations. Models must use only supported ops to generate valid proofs.</p>
+            <p style="font-size:0.75rem; color:var(--text2); margin-bottom:0.5rem;">ClawProof uses the <a href="https://github.com/ICME-Lab/jolt-atlas" style="color:var(--link)">JOLT-Atlas</a> proving system. The atlas-onnx-tracer compiles ONNX graphs into provable circuits. Below are the operations supported by the <code>Operator</code> enum in the tracer.</p>
 
-            <h5>Verified in production</h5>
+            <h5>Atlas-onnx-tracer operators (26)</h5>
             <ul class="ops-list">
-                <li><code>Gemm</code> (General Matrix Multiply)</li>
-                <li><code>Relu</code> (ReLU activation)</li>
-                <li><code>Add</code></li>
-                <li><code>MatMul</code> (with power-of-two padding)</li>
+                <li><code>Add</code>, <code>Sub</code>, <code>Mul</code>, <code>Div</code>, <code>Neg</code></li>
+                <li><code>ReLU</code>, <code>Tanh</code>, <code>Erf</code></li>
+                <li><code>SoftmaxAxes</code> (scaled, axis-aware)</li>
+                <li><code>Einsum</code> (covers MatMul, Gemm, batched attention)</li>
+                <li><code>Sum</code> (reduction over axes)</li>
+                <li><code>Reshape</code>, <code>Broadcast</code>, <code>MoveAxis</code></li>
+                <li><code>Gather</code>, <code>Identity</code>, <code>Constant</code>, <code>Input</code></li>
+                <li><code>Square</code>, <code>Cube</code>, <code>Rsqrt</code></li>
+                <li><code>ScalarConstDiv</code>, <code>Clamp</code></li>
+                <li><code>And</code>, <code>Iff</code>, <code>IsNan</code></li>
             </ul>
 
-            <h5>Supported via JOLT-Atlas (transformer pipeline)</h5>
+            <h5>Extended ops (onnx-tracer pipeline)</h5>
+            <p style="font-size:0.75rem; color:var(--text2); margin-bottom:0.25rem;">The full onnx-tracer supports a much wider set via polynomial, lookup-table, and hybrid op categories:</p>
             <ul class="ops-list">
-                <li><code>Softmax</code> (lookup-table based)</li>
-                <li><code>Reshape</code>, <code>Flatten</code>, <code>Transpose</code></li>
-                <li>Self-attention blocks</li>
-                <li>Embedding layers</li>
-            </ul>
-
-            <h5>Not supported</h5>
-            <ul class="ops-list">
-                <li><code>Conv</code>, <code>ConvTranspose</code> (CNN operations)</li>
-                <li><code>Sin</code>, <code>Cos</code> (trigonometric)</li>
-                <li><code>Slice</code>, <code>Concat</code> (dynamic array ops)</li>
-                <li><code>GRU</code>, <code>LSTM</code>, <code>RNN</code> (recurrent networks)</li>
-                <li><code>ReduceMean</code>, <code>ReduceSum</code> (reduction ops)</li>
-                <li><code>Div</code> (division)</li>
-                <li><code>GreaterOrEqual</code>, <code>Less</code> (comparison ops)</li>
-                <li>Quantization ops (<code>QLinearConv</code>, <code>DequantizeLinear</code>)</li>
+                <li><strong>Arithmetic:</strong> <code>Add</code>, <code>Sub</code>, <code>Mul</code>, <code>Div</code>, <code>Neg</code>, <code>Pow</code>, <code>Prod</code></li>
+                <li><strong>Activations:</strong> <code>ReLU</code>, <code>LeakyReLU</code>, <code>Sigmoid</code>, <code>Tanh</code>, <code>Erf</code></li>
+                <li><strong>Trig:</strong> <code>Sin</code>, <code>Cos</code>, <code>Tan</code>, <code>ASin</code>, <code>ACos</code>, <code>ATan</code>, <code>Sinh</code>, <code>Cosh</code></li>
+                <li><strong>Math:</strong> <code>Exp</code>, <code>Ln</code>, <code>Sqrt</code>, <code>Rsqrt</code>, <code>Abs</code>, <code>Sign</code>, <code>Ceil</code>, <code>Floor</code>, <code>Round</code></li>
+                <li><strong>Comparison:</strong> <code>Greater</code>, <code>GreaterEqual</code>, <code>Less</code>, <code>LessEqual</code>, <code>Equals</code></li>
+                <li><strong>Reduction:</strong> <code>Sum</code>, <code>ReduceMax</code>, <code>ReduceMin</code>, <code>ReduceArgMax</code>, <code>ReduceArgMin</code>, <code>TopK</code></li>
+                <li><strong>Pooling:</strong> <code>MaxPool2d</code>, <code>SumPool</code>, <code>GlobalSumPool</code></li>
+                <li><strong>Conv:</strong> <code>Conv</code>, <code>DeConv</code>, <code>Downsample</code></li>
+                <li><strong>Shape:</strong> <code>Reshape</code>, <code>Flatten</code>, <code>MoveAxis</code>, <code>Pad</code>, <code>Concat</code>, <code>Slice</code>, <code>Resize</code></li>
+                <li><strong>Indexing:</strong> <code>Gather</code>, <code>GatherElements</code>, <code>ScatterElements</code>, <code>OneHot</code></li>
+                <li><strong>Logic:</strong> <code>And</code>, <code>Or</code>, <code>Xor</code>, <code>Not</code>, <code>Iff</code></li>
+                <li><strong>Attention:</strong> <code>Einsum</code>, <code>Softmax</code></li>
             </ul>
 
             <h5>Model constraints</h5>
             <ul class="ops-list">
                 <li>ONNX format only (convert from PyTorch/TensorFlow/sklearn via <code>/convert</code>)</li>
-                <li>Max ONNX file size: 5MB &mdash; large models (CNNs, LLMs, diffusion models) will not fit</li>
-                <li>All inputs are cast to integer (i32) tensors &mdash; float-heavy pipelines lose precision</li>
-                <li>Trace length must accommodate model complexity (default 2<sup>14</sup>; max practical ~2<sup>20</sup>)</li>
-                <li>Best results with small MLPs (&lt;5 layers) and lightweight transformer blocks</li>
+                <li>Max ONNX file size: 5MB</li>
+                <li>All inputs are cast to integer (i32) tensors</li>
+                <li>Trace length must accommodate model complexity (default 2<sup>14</sup>)</li>
             </ul>
 
-            <h5>Conversion limits (<code>/convert</code>)</h5>
+            <h5>Conversion notes (<code>/convert</code>)</h5>
             <ul class="ops-list">
-                <li>Conversion does not guarantee provability &mdash; the resulting ONNX must still use only supported ops</li>
-                <li>PyTorch models must be traced (no dynamic control flow); <code>torch.jit.trace</code> recommended before upload</li>
-                <li>sklearn models must be simple estimators (LogisticRegression, MLPClassifier, DecisionTree)</li>
-                <li>TensorFlow/Keras models with custom layers or tf.function guards will fail conversion</li>
-                <li>Models exceeding ~50k parameters will likely exceed the 5MB ONNX limit or trace length budget</li>
-                <li>Quantized, pruned, or mixed-precision models are not supported</li>
+                <li>Conversion produces ONNX but does not guarantee the model fits in the trace length budget</li>
+                <li>PyTorch models should be traced (<code>torch.jit.trace</code>) before upload</li>
+                <li>sklearn models: LogisticRegression, MLPClassifier, DecisionTree, etc.</li>
+                <li>TensorFlow/Keras models with custom layers may fail conversion</li>
             </ul>
+            <p style="font-size:0.75rem; color:var(--text2); margin-top:0.5rem;">For the full operator source, see <a href="https://github.com/ICME-Lab/jolt-atlas/tree/main/atlas-onnx-tracer/src/ops" style="color:var(--link)">atlas-onnx-tracer/src/ops</a> and <a href="https://github.com/ICME-Lab/jolt-atlas/tree/main/onnx-tracer/src/ops" style="color:var(--link)">onnx-tracer/src/ops</a>.</p>
         </div>
     </div>
 

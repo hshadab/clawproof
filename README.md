@@ -217,7 +217,7 @@ curl -X POST https://clawproof.onrender.com/models/upload \
 
 ### `POST /convert`
 
-Convert PyTorch (.pt), TensorFlow (.pb), or sklearn (.pkl) models to ONNX. Requires the converter sidecar (`CONVERTER_URL`). Conversion does not guarantee the resulting ONNX is provable — it must still use only supported ops and fit within the 5MB / trace length budget. Best suited for small sklearn estimators and traced PyTorch MLPs.
+Convert PyTorch (.pt), TensorFlow (.pb), or sklearn (.pkl) models to ONNX. Requires the converter sidecar (`CONVERTER_URL`). Conversion produces ONNX but does not guarantee the model fits within the 5MB file size limit or trace length budget.
 
 ### All endpoints
 
@@ -245,46 +245,42 @@ Convert PyTorch (.pt), TensorFlow (.pb), or sklearn (.pkl) models to ONNX. Requi
 
 ## Supported ONNX operations
 
-ClawProof uses the [JOLT-Atlas](https://github.com/ICME-Lab/jolt-atlas) proving system, which supports a subset of ONNX operations. Models must use only supported ops to generate valid proofs.
+ClawProof uses the [JOLT-Atlas](https://github.com/ICME-Lab/jolt-atlas) proving system. The atlas-onnx-tracer compiles ONNX graphs into provable circuits. The operators listed below are from the actual source code.
 
-**Verified in production:**
-- `Gemm` (General Matrix Multiply)
-- `Relu` (ReLU activation)
-- `Add`
-- `MatMul` (with power-of-two padding)
+**Atlas-onnx-tracer `Operator` enum (26 ops):**
 
-**Supported via JOLT-Atlas (transformer pipeline):**
-- `Softmax` (lookup-table based)
-- `Reshape`, `Flatten`, `Transpose`
-- Self-attention blocks
-- Embedding layers
+`Add` · `Sub` · `Mul` · `Div` · `Neg` · `ReLU` · `Tanh` · `Erf` · `SoftmaxAxes` · `Einsum` (covers MatMul, Gemm, batched attention) · `Sum` · `Reshape` · `Broadcast` · `MoveAxis` · `Gather` · `Identity` · `Constant` · `Input` · `Square` · `Cube` · `Rsqrt` · `ScalarConstDiv` · `Clamp` · `And` · `Iff` · `IsNan`
 
-**Not supported:**
-- `Conv`, `ConvTranspose` (CNN operations)
-- `Sin`, `Cos` (trigonometric)
-- `Slice`, `Concat` (dynamic array ops)
-- `GRU`, `LSTM`, `RNN` (recurrent networks)
-- `ReduceMean`, `ReduceSum` (reduction ops)
-- `Div` (division)
-- `GreaterOrEqual`, `Less` (comparison ops)
-- Quantization ops (`QLinearConv`, `DequantizeLinear`)
+**Extended ops (onnx-tracer pipeline):**
+
+The full onnx-tracer supports a wider set via polynomial, lookup-table, and hybrid op categories:
+
+- **Arithmetic:** `Add`, `Sub`, `Mul`, `Div`, `Neg`, `Pow`, `Prod`
+- **Activations:** `ReLU`, `LeakyReLU`, `Sigmoid`, `Tanh`, `Erf`
+- **Trig:** `Sin`, `Cos`, `Tan`, `ASin`, `ACos`, `ATan`, `Sinh`, `Cosh`
+- **Math:** `Exp`, `Ln`, `Sqrt`, `Rsqrt`, `Abs`, `Sign`, `Ceil`, `Floor`, `Round`
+- **Comparison:** `Greater`, `GreaterEqual`, `Less`, `LessEqual`, `Equals`
+- **Reduction:** `Sum`, `ReduceMax`, `ReduceMin`, `ReduceArgMax`, `ReduceArgMin`, `TopK`
+- **Pooling:** `MaxPool2d`, `SumPool`, `GlobalSumPool`
+- **Conv:** `Conv`, `DeConv`, `Downsample`
+- **Shape:** `Reshape`, `Flatten`, `MoveAxis`, `Pad`, `Concat`, `Slice`, `Resize`
+- **Indexing:** `Gather`, `GatherElements`, `ScatterElements`, `OneHot`
+- **Logic:** `And`, `Or`, `Xor`, `Not`, `Iff`
+- **Attention:** `Einsum`, `Softmax`
 
 **Model constraints:**
 - ONNX format only (convert from PyTorch/TensorFlow/sklearn via `/convert`)
-- Max ONNX file size: 5MB — large models (CNNs, LLMs, diffusion models) will not fit
-- All inputs are cast to integer (i32) tensors — float-heavy pipelines lose precision
-- Trace length must accommodate model complexity (default 2^14; max practical ~2^20)
-- Best results with small MLPs (<5 layers) and lightweight transformer blocks
-- Models exceeding ~50k parameters will likely exceed the 5MB ONNX limit or trace length budget
+- Max ONNX file size: 5MB
+- All inputs are cast to integer (i32) tensors
+- Trace length must accommodate model complexity (default 2^14)
 
-**Conversion limits (`/convert`):**
-- Conversion does not guarantee provability — the resulting ONNX must still use only supported ops
-- PyTorch models must be traced (no dynamic control flow); `torch.jit.trace` recommended before upload
-- sklearn models must be simple estimators (LogisticRegression, MLPClassifier, DecisionTree)
-- TensorFlow/Keras models with custom layers or `tf.function` guards will fail conversion
-- Quantized, pruned, or mixed-precision models are not supported
+**Conversion notes (`/convert`):**
+- Conversion produces ONNX but does not guarantee the model fits in the trace length budget
+- PyTorch models should be traced (`torch.jit.trace`) before upload
+- sklearn models: LogisticRegression, MLPClassifier, DecisionTree, etc.
+- TensorFlow/Keras models with custom layers may fail conversion
 
-For the full JOLT-Atlas framework, see [github.com/ICME-Lab/jolt-atlas](https://github.com/ICME-Lab/jolt-atlas).
+For the full operator source, see [atlas-onnx-tracer/src/ops](https://github.com/ICME-Lab/jolt-atlas/tree/main/atlas-onnx-tracer/src/ops) and [onnx-tracer/src/ops](https://github.com/ICME-Lab/jolt-atlas/tree/main/onnx-tracer/src/ops).
 
 ## Environment variables
 
