@@ -203,6 +203,32 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
+    // Moltbook heartbeat — pings /home every 30 minutes if API key is set
+    if let Some(ref key) = config.moltbook_api_key {
+        let api_key = key.clone();
+        tokio::spawn(async move {
+            let client = reqwest::Client::new();
+            let mut interval = tokio::time::interval(Duration::from_secs(1800));
+            loop {
+                interval.tick().await;
+                match client
+                    .get("https://www.moltbook.com/api/v1/home")
+                    .header("Authorization", format!("Bearer {}", api_key))
+                    .send()
+                    .await
+                {
+                    Ok(resp) => {
+                        info!("[clawproof] Moltbook heartbeat: {}", resp.status());
+                    }
+                    Err(e) => {
+                        tracing::warn!("[clawproof] Moltbook heartbeat failed: {:?}", e);
+                    }
+                }
+            }
+        });
+        info!("[clawproof] Moltbook heartbeat enabled (every 30 min)");
+    }
+
     // CORS configuration
     let cors = if let Some(ref origins) = config.cors_origins {
         let origins: Vec<_> = origins

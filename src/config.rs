@@ -10,6 +10,7 @@ pub struct Config {
     pub cors_origins: Option<String>,
     pub uploaded_models_dir: PathBuf,
     pub converter_url: Option<String>,
+    pub moltbook_api_key: Option<String>,
 }
 
 impl Config {
@@ -48,6 +49,7 @@ impl Config {
         );
 
         let converter_url = std::env::var("CONVERTER_URL").ok();
+        let moltbook_api_key = std::env::var("MOLTBOOK_API_KEY").ok();
 
         Self {
             port,
@@ -57,6 +59,7 @@ impl Config {
             cors_origins,
             uploaded_models_dir,
             converter_url,
+            moltbook_api_key,
         }
     }
 }
