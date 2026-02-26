@@ -42,7 +42,7 @@ services:
       - key: CORS_ORIGINS
         value: https://clawproof.onrender.com
       - key: MOLTBOOK_API_KEY
-        value: moltbook_sk_szvj2T9QQwKIyEcnp7Jrsd0QVyFfcJKF
+        value: moltbook_sk__AjGAG9hymj1eNzOECcIKo02VSzBduI2
 
   # --- Python ONNX converter sidecar ---
   - type: web
