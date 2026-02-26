@@ -1,8 +1,8 @@
 # ClawProof
 
-zkML proof-as-a-service. Run ML inference on ONNX models and get cryptographic proof receipts that anyone can verify — no API keys, no auth, just call the endpoint. Working prototype.
+zkML proof-as-a-service. Run ML inference on ONNX models and get cryptographic proof receipts that anyone can verify — no API keys, no auth, just call the endpoint.
 
-**Proof system:** [JOLT-Atlas](https://github.com/ICME-Lab/jolt-atlas) SNARK with Dory commitment scheme on BN254
+**Proof system:** [JOLT-Atlas](https://github.com/ICME-Lab/jolt-atlas) SNARK with Dory commitment scheme on BN254. Not audited.
 
 **Live:** https://clawproof.onrender.com
 
