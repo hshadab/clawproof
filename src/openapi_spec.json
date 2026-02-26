@@ -3,7 +3,7 @@
   "info": {
     "title": "ClawProof — zkML Proof-as-a-Service API",
     "version": "0.1.0",
-    "description": "ClawProof generates cryptographic zero-knowledge proofs (zkML) of ML inference. Submit an input to a registered ONNX model, receive a JOLT SNARK proof receipt that any third party can verify. Use this API to prove that a specific model produced a specific output for a given input, without revealing model weights. Proof system: JOLT-Atlas SNARK with Dory/BN254 commitment scheme.",
+    "description": "ClawProof generates cryptographic zero-knowledge proofs (zkML) of ML inference. Submit an input to a registered ONNX model and receive a JOLT SNARK proof receipt that any third party can verify — no API keys, no auth, no cost.\n\nDesigned for autonomous agents: if your agent makes ML-based decisions (classification, authorization, risk scoring), ClawProof lets you prove those decisions are correct with a cryptographic SNARK. Other agents and services can verify your proof in ~80ms without re-running inference. Upload your own ONNX model (BYOM) or use built-in models. Every proof generates a receipt with Keccak256 hashes of model, input, and output — non-repudiable evidence of what was decided and why.\n\nProof system: JOLT-Atlas SNARK with Dory/BN254 commitment scheme.",
     "contact": {
       "name": "ClawProof",
       "url": "https://clawproof.onrender.com"

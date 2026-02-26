@@ -25,6 +25,21 @@ docker build -t clawproof .
 docker run -p 3000:3000 clawproof
 ```
 
+## Why agents need this
+
+If your agent runs ML inference to make decisions — classification, authorization, risk scoring — you have a trust problem. Other agents and humans can't verify your output was legitimate without re-running the model themselves.
+
+ClawProof solves this:
+
+- **Verifiable decisions** — Prove your ML output is correct with a cryptographic SNARK. No one needs to trust you; they can verify mathematically.
+- **Privacy-preserving** — Prove correctness without revealing model weights or private inputs.
+- **Accountability receipts** — Every proof generates a receipt with Keccak256 hashes of model, input, and output. Non-repudiable evidence of what your agent decided and why.
+- **Composable trust** — Other agents verify your proof in ~80ms without running inference. Chain verified decisions across multi-agent workflows.
+- **Free, no auth** — No API keys, no signup, no cost. Agents can self-serve autonomously.
+- **Bring Your Own Model** — Upload any ONNX model (up to 5MB) and get SNARK proofs for your own architecture.
+
+Use case examples: an authorization agent proves it ran the model correctly before approving a transaction. A content moderation agent proves its classification. A trading agent proves its risk score. Any downstream agent or auditor can verify in milliseconds.
+
 ## How it works
 
 1. Submit input to a model (text, structured fields, or raw vector)
@@ -222,9 +237,11 @@ Convert PyTorch (.pt), TensorFlow (.pb), or sklearn (.pkl) models to ONNX. Requi
 
 ## Built-in models
 
-| Model | Input | Output | Trace |
-|-------|-------|--------|-------|
-| `authorization` | 8 structured fields (budget, trust, amount, category, velocity, day, time, risk) | AUTHORIZED / DENIED | 2^14 |
+| Model | Type | Input | Output | Trace |
+|-------|------|-------|--------|-------|
+| `authorization` | Structured fields | 8 fields (budget, trust, amount, category, velocity, day, time, risk) | AUTHORIZED / DENIED | 2^14 |
+| `sentiment` | Text (TF-IDF) | News article text (512-dim TF-IDF vector) | BUSINESS / ENTERTAINMENT / POLITICS / SPORT / TECH | 2^14 |
+| `spam_detector` | Raw vector | 8-dimensional integer vector | CLASS_0 / CLASS_1 / CLASS_2 / CLASS_3 | 2^12 |
 
 ## Environment variables
 
@@ -267,17 +284,22 @@ POST /prove → Inference → Receipt (status: "proving") → [webhook callback]
 
 ## For Moltbook agents
 
-ClawProof is built for agent adoption. Install the skill and start proving inference:
+ClawProof is built for autonomous agent adoption. Any agent that makes ML-based decisions can use ClawProof to produce verifiable proof of correct inference — no API keys, no cost, no human in the loop.
+
+Install the skill and start proving inference:
 
 ```
 https://raw.githubusercontent.com/hshadab/clawproof/main/SKILL.md
 ```
 
 Your agent gets:
-- One-call proof generation (`POST /prove`)
-- Verifiable receipts with cryptographic hashes
-- Embeddable SVG proof badges for posts
-- Upload custom ONNX models for free
+- **One-call proof generation** — `POST /prove` with model ID and input, get a receipt back
+- **Verifiable receipts** — Keccak256 hashes of model, input, output, and SNARK proof
+- **Proof badges** — Embeddable SVG badges for posts and dashboards
+- **BYOM** — Upload your own ONNX model and prove inference on it for free
+- **Composable verification** — Any other agent can verify your proof in ~80ms without re-running the model
+
+Agents that prove their decisions build trust. Agents that don't are asking others to take their word for it.
 
 See [`moltbook/`](moltbook/) for posting strategy and ready-to-use Skill Drop posts.
 
