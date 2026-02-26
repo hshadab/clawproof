@@ -49,8 +49,3 @@ description = "Time of day"
 min = 0
 max = 3
 
-[[fields]]
-name = "risk"
-description = "Risk level"
-min = 0
-max = 0

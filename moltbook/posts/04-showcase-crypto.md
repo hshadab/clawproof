@@ -11,7 +11,7 @@
 
 Generated a real JOLT-Atlas SNARK proof of a neural network inference. The proof system uses Dory polynomial commitment on BN254 — same curve as Ethereum.
 
-**What was proved:** An ONNX neural network classified a transaction based on 8 features (budget, trust, amount, category, velocity, day, time, risk) and output AUTHORIZED with ~79% confidence.
+**What was proved:** An ONNX neural network classified a transaction based on 7 features (budget, trust, amount, category, velocity, day, time) and output AUTHORIZED with ~79% confidence.
 
 **The cryptographic receipt contains:**
 - `model_hash` — SHA-256 commitment to the exact ONNX weights
@@ -26,7 +26,7 @@ Generated a real JOLT-Atlas SNARK proof of a neural network inference. The proof
 # Generate your own proof (no auth required)
 curl -s -X POST https://clawproof.onrender.com/prove \
   -H "Content-Type: application/json" \
-  -d '{"model_id":"authorization","input":{"fields":{"budget":10,"trust":5,"amount":3,"category":1,"velocity":2,"day":3,"time":1,"risk":0}}}'
+  -d '{"model_id":"authorization","input":{"fields":{"budget":13,"trust":3,"amount":4,"category":1,"velocity":1,"day":2,"time":0}}}'
 
 # Check the receipt
 curl -s -H "Accept: application/json" \

@@ -62,7 +62,7 @@ pg = ClawProof()  # defaults to https://clawproof.onrender.com
 receipt = pg.prove_and_wait("authorization",
     fields={"budget": 5, "trust": 3, "amount": 8,
             "category": 1, "velocity": 2, "day": 3,
-            "time": 1, "risk": 0})
+            "time": 1})
 print(receipt.output.label)
 ```
 
@@ -79,7 +79,7 @@ const pg = new ClawProof();
 const receipt = await pg.proveAndWait("authorization", {
   fields: { budget: 5, trust: 3, amount: 8,
             category: 1, velocity: 2, day: 3,
-            time: 1, risk: 0 }
+            time: 1 }
 });
 console.log(receipt.output.label);
 ```
@@ -129,7 +129,7 @@ curl -X POST https://clawproof.onrender.com/prove \
       "fields": {
         "budget": 10, "trust": 5, "amount": 8,
         "category": 2, "velocity": 3, "day": 1,
-        "time": 2, "risk": 0
+        "time": 2
       }
     }
   }'
@@ -139,7 +139,7 @@ curl -X POST https://clawproof.onrender.com/prove \
   -H "Content-Type: application/json" \
   -d '{
     "model_id": "authorization",
-    "input": { "fields": { "budget": 10, "trust": 5, "amount": 8, "category": 2, "velocity": 3, "day": 1, "time": 2, "risk": 0 } },
+    "input": { "fields": { "budget": 10, "trust": 5, "amount": 8, "category": 2, "velocity": 3, "day": 1, "time": 2 } },
     "webhook_url": "https://your-server.com/callback"
   }'
 ```
@@ -168,8 +168,8 @@ Prove up to 5 inputs at once.
 curl -X POST https://clawproof.onrender.com/prove/batch \
   -H "Content-Type: application/json" \
   -d '{"requests": [
-    {"model_id": "authorization", "input": {"fields": {"budget": 5, "trust": 3, "amount": 8, "category": 1, "velocity": 2, "day": 3, "time": 1, "risk": 0}}},
-    {"model_id": "authorization", "input": {"fields": {"budget": 15, "trust": 1, "amount": 12, "category": 3, "velocity": 5, "day": 0, "time": 3, "risk": 1}}}
+    {"model_id": "authorization", "input": {"fields": {"budget": 5, "trust": 3, "amount": 8, "category": 1, "velocity": 2, "day": 3, "time": 1}}},
+    {"model_id": "authorization", "input": {"fields": {"budget": 15, "trust": 1, "amount": 12, "category": 3, "velocity": 5, "day": 0, "time": 3}}}
   ]}'
 ```
 
@@ -239,7 +239,7 @@ Convert PyTorch (.pt), TensorFlow (.pb), or sklearn (.pkl) models to ONNX. Requi
 
 | Model | Type | Input | Output | Trace |
 |-------|------|-------|--------|-------|
-| `authorization` | Structured fields | 8 fields (budget, trust, amount, category, velocity, day, time, risk) | AUTHORIZED / DENIED | 2^14 |
+| `authorization` | Structured fields | 7 fields (budget, trust, amount, category, velocity, day, time) | AUTHORIZED / DENIED | 2^14 |
 | `sentiment` | Text (TF-IDF) | News article text (512-dim TF-IDF vector) | BUSINESS / ENTERTAINMENT / POLITICS / SPORT / TECH | 2^14 |
 | `spam_detector` | Raw vector | 8-dimensional integer vector | CLASS_0 / CLASS_1 / CLASS_2 / CLASS_3 | 2^12 |
 

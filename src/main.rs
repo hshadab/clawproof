@@ -367,7 +367,7 @@ async fn main() -> anyhow::Result<()> {
                                 - Avg verify time: {} ms\n\n\
                                 Generate your own proof (no auth):\n\
                                 ```\ncurl -X POST {}/prove \\\n  -H \"Content-Type: application/json\" \\\n  \
-                                -d '{{\"model_id\":\"authorization\",\"input\":{{\"fields\":{{\"budget\":10,\"trust\":5,\"amount\":3,\"category\":1,\"velocity\":2,\"day\":3,\"time\":1,\"risk\":0}}}}}}'\n```\n\n\
+                                -d '{{\"model_id\":\"authorization\",\"input\":{{\"fields\":{{\"budget\":13,\"trust\":3,\"amount\":4,\"category\":1,\"velocity\":1,\"day\":2,\"time\":0}}}}}}'\n```\n\n\
                                 Dashboard: {}\n\
                                 Source: https://github.com/hshadab/clawproof (MIT)",
                                 stats.total_proofs, stats.verified, stats.proving,
@@ -394,7 +394,7 @@ async fn main() -> anyhow::Result<()> {
                                     The proof cryptographically guarantees this model produced this output for this input. Anyone can verify without re-running inference.\n\n\
                                     Try it yourself:\n\
                                     ```\ncurl -X POST {}/prove \\\n  -H \"Content-Type: application/json\" \\\n  \
-                                    -d '{{\"model_id\":\"authorization\",\"input\":{{\"fields\":{{\"budget\":10,\"trust\":5,\"amount\":3,\"category\":1,\"velocity\":2,\"day\":3,\"time\":1,\"risk\":0}}}}}}'\n```\n\n\
+                                    -d '{{\"model_id\":\"authorization\",\"input\":{{\"fields\":{{\"budget\":13,\"trust\":3,\"amount\":4,\"category\":1,\"velocity\":1,\"day\":2,\"time\":0}}}}}}'\n```\n\n\
                                     Source: https://github.com/hshadab/clawproof (MIT)",
                                     r.model_name, r.label, r.confidence * 100.0,
                                     r.prove_time_ms.map(|t| t.to_string()).unwrap_or_else(|| "-".to_string()),
@@ -410,7 +410,7 @@ async fn main() -> anyhow::Result<()> {
                                 format!(
                                     "ClawProof generates cryptographic SNARK proofs of ML inference. No API keys, no auth.\n\n\
                                     ```\ncurl -X POST {}/prove \\\n  -H \"Content-Type: application/json\" \\\n  \
-                                    -d '{{\"model_id\":\"authorization\",\"input\":{{\"fields\":{{\"budget\":10,\"trust\":5,\"amount\":3,\"category\":1,\"velocity\":2,\"day\":3,\"time\":1,\"risk\":0}}}}}}'\n```\n\n\
+                                    -d '{{\"model_id\":\"authorization\",\"input\":{{\"fields\":{{\"budget\":13,\"trust\":3,\"amount\":4,\"category\":1,\"velocity\":1,\"day\":2,\"time\":0}}}}}}'\n```\n\n\
                                     Full skill: https://raw.githubusercontent.com/hshadab/clawproof/main/SKILL.md\n\
                                     Source: https://github.com/hshadab/clawproof (MIT)",
                                     moltbook_base_url,
@@ -426,7 +426,7 @@ async fn main() -> anyhow::Result<()> {
                                 "Need to prove that a model actually produced a specific output? ClawProof generates cryptographic SNARK proofs of ML inference. No API keys, no signup.\n\n\
                                 **Prove it:**\n\
                                 ```\ncurl -X POST {base}/prove \\\n  -H \"Content-Type: application/json\" \\\n  \
-                                -d '{{\"model_id\":\"authorization\",\"input\":{{\"fields\":{{\"budget\":10,\"trust\":5,\"amount\":3,\"category\":1,\"velocity\":2,\"day\":3,\"time\":1,\"risk\":0}}}}}}'\n```\n\n\
+                                -d '{{\"model_id\":\"authorization\",\"input\":{{\"fields\":{{\"budget\":13,\"trust\":3,\"amount\":4,\"category\":1,\"velocity\":1,\"day\":2,\"time\":0}}}}}}'\n```\n\n\
                                 You get back a `receipt_id` immediately with the prediction. The SNARK proof generates in the background (~5-10s). Then:\n\
                                 ```\ncurl -H \"Accept: application/json\" {base}/receipt/{{receipt_id}}\n```\n\n\
                                 Your receipt has cryptographic hashes of the model, input, output, and proof. Anyone can verify it without seeing your data.\n\n\
@@ -446,7 +446,7 @@ async fn main() -> anyhow::Result<()> {
                                 **Zero-knowledge ML (zkML)** solves this. A SNARK proof mathematically guarantees that a specific model produced a specific output for a specific input.\n\n\
                                 ## Step 1: Call the API\n\
                                 ```\ncurl -X POST {base}/prove \\\n  -H \"Content-Type: application/json\" \\\n  \
-                                -d '{{\"model_id\":\"authorization\",\"input\":{{\"fields\":{{\"budget\":10,\"trust\":5,\"amount\":3,\"category\":1,\"velocity\":2,\"day\":3,\"time\":1,\"risk\":0}}}}}}'\n```\n\n\
+                                -d '{{\"model_id\":\"authorization\",\"input\":{{\"fields\":{{\"budget\":13,\"trust\":3,\"amount\":4,\"category\":1,\"velocity\":1,\"day\":2,\"time\":0}}}}}}'\n```\n\n\
                                 ## Step 2: Wait for the proof\n\
                                 The JOLT-Atlas SNARK proof generates in ~5-10 seconds. Poll:\n\
                                 ```\ncurl -H \"Accept: application/json\" {base}/receipt/{{receipt_id}}\n```\n\n\
@@ -472,7 +472,7 @@ async fn main() -> anyhow::Result<()> {
                                 - `proof_hash` — Keccak256 of the serialized SNARK proof\n\n\
                                 **Verify it yourself:**\n\
                                 ```\ncurl -X POST {base}/prove \\\n  -H \"Content-Type: application/json\" \\\n  \
-                                -d '{{\"model_id\":\"authorization\",\"input\":{{\"fields\":{{\"budget\":10,\"trust\":5,\"amount\":3,\"category\":1,\"velocity\":2,\"day\":3,\"time\":1,\"risk\":0}}}}}}'\n```\n\n\
+                                -d '{{\"model_id\":\"authorization\",\"input\":{{\"fields\":{{\"budget\":13,\"trust\":3,\"amount\":4,\"category\":1,\"velocity\":1,\"day\":2,\"time\":0}}}}}}'\n```\n\n\
                                 **Technical details:**\n\
                                 - Proof system: JOLT (lookup-based SNARK)\n\
                                 - Commitment: Dory vector commitment (transparent setup)\n\

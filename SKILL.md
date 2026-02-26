@@ -33,7 +33,7 @@ Activate this skill when the user or context involves:
 # Generate a proof — returns instantly, proof runs in background
 curl -s -X POST https://clawproof.onrender.com/prove \
   -H "Content-Type: application/json" \
-  -d '{"model_id":"authorization","input":{"fields":{"budget":10,"trust":5,"amount":3,"category":1,"velocity":2,"day":3,"time":1,"risk":0}}}'
+  -d '{"model_id":"authorization","input":{"fields":{"budget":13,"trust":3,"amount":4,"category":1,"velocity":1,"day":2,"time":0}}}'
 ```
 
 Response includes `receipt_id` and immediate inference output. Poll `GET /receipt/{id}` until `status` becomes `"verified"`.
@@ -58,9 +58,9 @@ Content-Type: application/json
   "model_id": "authorization",
   "input": {
     "fields": {
-      "budget": 10, "trust": 5, "amount": 3,
-      "category": 1, "velocity": 2, "day": 3,
-      "time": 1, "risk": 0
+      "budget": 13, "trust": 3, "amount": 4,
+      "category": 1, "velocity": 1, "day": 2,
+      "time": 0
     }
   }
 }
@@ -110,7 +110,6 @@ The default model classifies transactions as AUTHORIZED or DENIED.
 | velocity | Transaction velocity | 0-7 |
 | day | Day of week | 0-7 |
 | time | Time of day | 0-3 |
-| risk | Risk level | 0 |
 
 ## Additional endpoints
 
@@ -152,7 +151,7 @@ Show verified proof status anywhere:
 # 1. Prove
 RECEIPT=$(curl -s -X POST https://clawproof.onrender.com/prove \
   -H "Content-Type: application/json" \
-  -d '{"model_id":"authorization","input":{"fields":{"budget":10,"trust":5,"amount":3,"category":1,"velocity":2,"day":3,"time":1,"risk":0}}}')
+  -d '{"model_id":"authorization","input":{"fields":{"budget":13,"trust":3,"amount":4,"category":1,"velocity":1,"day":2,"time":0}}}')
 
 RECEIPT_ID=$(echo $RECEIPT | jq -r .receipt_id)
 

@@ -528,7 +528,7 @@ async function runDemo() {
     try {
         const r = await fetch('/prove', {
             method: 'POST', headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({model_id:'authorization',input:{fields:{budget:10,trust:5,amount:3,category:1,velocity:2,day:3,time:1,risk:0}}})
+            body: JSON.stringify({model_id:'authorization',input:{fields:{budget:13,trust:3,amount:4,category:1,velocity:1,day:2,time:0}}})
         });
         const data = await r.json();
         if (!r.ok) throw new Error(data.error || 'Request failed');
@@ -605,7 +605,7 @@ function selectModel(id) {
 const MODEL_DEFAULTS = {
     sentiment: { text: "The economy showed strong growth this quarter as tech stocks surged" },
     spam_detector: { raw: [1, 0, 3, 2, 1, 0, 2, 1] },
-    authorization: { fields: { budget: 10, trust: 5, amount: 3, category: 1, velocity: 2, day: 3, time: 1, risk: 0 } }
+    authorization: { fields: { budget: 13, trust: 3, amount: 4, category: 1, velocity: 1, day: 2, time: 0 } }
 };
 
 function renderInputs() {

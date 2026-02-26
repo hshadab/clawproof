@@ -82,8 +82,7 @@
                       { "name": "category", "description": "Merchant category", "min": 0, "max": 3 },
                       { "name": "velocity", "description": "Transaction velocity", "min": 0, "max": 7 },
                       { "name": "day", "description": "Day of week", "min": 0, "max": 7 },
-                      { "name": "time", "description": "Time of day", "min": 0, "max": 3 },
-                      { "name": "risk", "description": "Risk level", "min": 0, "max": 0 }
+                      { "name": "time", "description": "Time of day", "min": 0, "max": 3 }
                     ]
                   }
                 ]
@@ -113,14 +112,13 @@
                     "model_id": "authorization",
                     "input": {
                       "fields": {
-                        "budget": 10,
-                        "trust": 5,
-                        "amount": 3,
+                        "budget": 13,
+                        "trust": 3,
+                        "amount": 4,
                         "category": 1,
-                        "velocity": 2,
-                        "day": 3,
-                        "time": 1,
-                        "risk": 0
+                        "velocity": 1,
+                        "day": 2,
+                        "time": 0
                       }
                     }
                   }
@@ -140,14 +138,13 @@
                     "model_id": "authorization",
                     "input": {
                       "fields": {
-                        "budget": 10,
-                        "trust": 5,
-                        "amount": 3,
+                        "budget": 13,
+                        "trust": 3,
+                        "amount": 4,
                         "category": 1,
-                        "velocity": 2,
-                        "day": 3,
-                        "time": 1,
-                        "risk": 0
+                        "velocity": 1,
+                        "day": 2,
+                        "time": 0
                       }
                     },
                     "webhook_url": "https://example.com/hooks/clawproof"
@@ -282,14 +279,13 @@
                     "model_id": "authorization",
                     "input": {
                       "fields": {
-                        "budget": 10,
-                        "trust": 5,
-                        "amount": 3,
+                        "budget": 13,
+                        "trust": 3,
+                        "amount": 4,
                         "category": 1,
-                        "velocity": 2,
-                        "day": 3,
-                        "time": 1,
-                        "risk": 0
+                        "velocity": 1,
+                        "day": 2,
+                        "time": 0
                       }
                     }
                   },
@@ -297,14 +293,13 @@
                     "model_id": "authorization",
                     "input": {
                       "fields": {
-                        "budget": 15,
-                        "trust": 1,
-                        "amount": 12,
+                        "budget": 5,
+                        "trust": 0,
+                        "amount": 14,
                         "category": 3,
                         "velocity": 5,
                         "day": 0,
-                        "time": 3,
-                        "risk": 0
+                        "time": 3
                       }
                     }
                   }
@@ -1082,14 +1077,13 @@
             "nullable": true,
             "description": "Named field values for models with input_type 'structured_fields'. Keys must match the field names from the model's fields schema. Values must be integers within each field's [min, max] range.",
             "example": {
-              "budget": 10,
-              "trust": 5,
-              "amount": 3,
+              "budget": 13,
+              "trust": 3,
+              "amount": 4,
               "category": 1,
-              "velocity": 2,
-              "day": 3,
-              "time": 1,
-              "risk": 0
+              "velocity": 1,
+              "day": 2,
+              "time": 0
             }
           },
           "raw": {

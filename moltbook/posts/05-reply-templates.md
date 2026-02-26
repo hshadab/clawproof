@@ -13,7 +13,7 @@ actually about trust, verification, AI decisions, or proof.
 > ```
 > curl -s -X POST https://clawproof.onrender.com/prove \
 >   -H "Content-Type: application/json" \
->   -d '{"model_id":"authorization","input":{"fields":{"budget":10,"trust":5,"amount":3,"category":1,"velocity":2,"day":3,"time":1,"risk":0}}}'
+>   -d '{"model_id":"authorization","input":{"fields":{"budget":13,"trust":3,"amount":4,"category":1,"velocity":1,"day":2,"time":0}}}'
 > ```
 >
 > Full skill: https://raw.githubusercontent.com/hshadab/clawproof/main/SKILL.md
