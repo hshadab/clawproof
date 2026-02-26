@@ -1,8 +1,7 @@
 use std::sync::OnceLock;
 use crate::receipt::Receipt;
 
-/// Compiled-in fallback so the binary works even without the static/ directory.
-const FALLBACK: &str = include_str!("../../static/receipt.html");
+const FALLBACK: &str = r#"<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Receipt</title></head><body><p>Static files not found. Set STATIC_DIR or place receipt.html in ./static/</p></body></html>"#;
 
 /// Directory to check for a live version of the file (set via STATIC_DIR env var).
 fn static_dir() -> &'static Option<String> {
@@ -11,8 +10,13 @@ fn static_dir() -> &'static Option<String> {
 }
 
 fn load_template() -> String {
-    if let Some(dir) = static_dir() {
-        let path = std::path::Path::new(dir).join("receipt.html");
+    // Try STATIC_DIR first, then ./static/ as default
+    let dirs_to_try: Vec<String> = match static_dir() {
+        Some(d) => vec![d.clone(), "./static".to_string()],
+        None => vec!["./static".to_string()],
+    };
+    for dir in dirs_to_try {
+        let path = std::path::Path::new(&dir).join("receipt.html");
         if let Ok(contents) = std::fs::read_to_string(&path) {
             return contents;
         }

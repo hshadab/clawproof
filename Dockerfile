@@ -36,7 +36,6 @@ WORKDIR /build
 FROM chef AS planner
 COPY Cargo.toml Cargo.lock ./
 COPY src/ src/
-COPY static/ static/
 RUN cargo chef prepare --recipe-path recipe.json
 
 # --- Builder stage: compile deps (cached), then source ---
@@ -52,7 +51,6 @@ RUN cargo chef cook --release --recipe-path recipe.json
 # Now copy source and build (only recompiles crate code)
 COPY Cargo.toml Cargo.lock ./
 COPY src/ src/
-COPY static/ static/
 RUN cargo build --release --bin clawproof
 
 # --- Python converter stage ---
@@ -103,15 +101,13 @@ COPY --from=converter-builder /usr/local/lib/python3.11/site-packages /usr/local
 RUN mkdir -p /app/data /app/data/models /app/data/static
 
 # Create entrypoint script
-# - Seeds static files to persistent disk (only if not already present)
+# - Seeds static files to persistent disk on every deploy
 # - Starts the Rust server
 RUN printf '#!/bin/sh\n\
-# Seed static files to persistent disk on first boot.\n\
-# To update the UI without redeploying, edit /app/data/static/playground.html\n\
-# on the persistent disk directly.\n\
-if [ ! -f /app/data/static/playground.html ]; then\n\
-    cp /app/static/* /app/data/static/ 2>/dev/null || true\n\
-fi\n\
+# Sync static files from image to persistent disk on every boot.\n\
+# This ensures new/updated HTML files are always deployed.\n\
+# To override the UI without redeploying, edit files in /app/data/static/ directly.\n\
+cp /app/static/* /app/data/static/ 2>/dev/null || true\n\
 # Start Rust server\n\
 exec /app/clawproof\n' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
