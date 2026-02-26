@@ -367,21 +367,32 @@ function selectModel(id) {
     document.getElementById('prove-btn').disabled = false;
 }
 
+// Default values per model for one-click usability
+const MODEL_DEFAULTS = {
+    sentiment: { text: "The economy showed strong growth this quarter as tech stocks surged" },
+    spam_detector: { raw: [1, 0, 3, 2, 1, 0, 2, 1] },
+    authorization: { fields: { budget: 10, trust: 5, amount: 3, category: 1, velocity: 2, day: 3, time: 1, risk: 0 } }
+};
+
 function renderInputs() {
     const m = selectedModel;
     if (!m) return;
     const area = document.getElementById('input-area');
+    const defaults = MODEL_DEFAULTS[m.id] || {};
     if (m.input_type === 'text') {
-        area.innerHTML = `<div class="form-group"><label class="form-label">Input text</label><textarea id="text-input" placeholder="Enter text to classify..."></textarea></div>`;
+        const val = defaults.text || '';
+        area.innerHTML = `<div class="form-group"><label class="form-label">Input text</label><textarea id="text-input" placeholder="Enter text to classify...">${val}</textarea></div>`;
     } else if (m.fields) {
         let html = '<div class="form-group"><label class="form-label">Parameters</label><div class="fields-grid">';
         for (const f of m.fields) {
-            html += `<div class="field-item"><label class="form-label">${f.name} <span class="field-range">${f.min}\u2013${f.max}</span></label><input type="number" data-field="${f.name}" min="${f.min}" max="${f.max}" value="${f.min}"></div>`;
+            const val = (defaults.fields && defaults.fields[f.name] !== undefined) ? defaults.fields[f.name] : f.min;
+            html += `<div class="field-item"><label class="form-label">${f.name} <span class="field-range">${f.min}\u2013${f.max}</span></label><input type="number" data-field="${f.name}" min="${f.min}" max="${f.max}" value="${val}"></div>`;
         }
         html += '</div></div>';
         area.innerHTML = html;
     } else if (m.input_type === 'raw') {
-        area.innerHTML = `<div class="form-group"><label class="form-label">Raw input vector (JSON array of ${m.input_dim} integers)</label><textarea id="raw-input" placeholder="[0, 1, 2, ...]" rows="3"></textarea></div>`;
+        const val = defaults.raw ? JSON.stringify(defaults.raw) : '';
+        area.innerHTML = `<div class="form-group"><label class="form-label">Raw input vector (JSON array of ${m.input_dim} integers)</label><textarea id="raw-input" placeholder="[0, 1, 2, ...]" rows="3">${val}</textarea></div>`;
     }
 }
 
