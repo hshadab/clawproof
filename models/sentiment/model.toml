@@ -1,8 +1,8 @@
 id = "sentiment"
-name = "Sentiment Analysis"
-description = "Classifies short text as positive or negative sentiment. Tiny model ideal for quick proofs."
+name = "News Topic Classifier"
+description = "Classifies news articles into topics: business, entertainment, politics, sport, or tech. Trained on BBC News dataset using TF-IDF features."
 input_type = "text"
-input_dim = 5
-input_shape = [1, 5]
-labels = ["NEGATIVE", "POSITIVE"]
-trace_length = 4096
+input_dim = 512
+input_shape = [1, 512]
+labels = ["BUSINESS", "ENTERTAINMENT", "POLITICS", "SPORT", "TECH", "OTHER_5", "OTHER_6", "OTHER_7"]
+trace_length = 16384

@@ -206,7 +206,7 @@
             <h4>One-call proof (curl)</h4>
 <pre>curl -X POST https://clawproof.onrender.com/prove \
   -H "Content-Type: application/json" \
-  -d '{"model_id":"sentiment","input":{"text":"I love this product"}}'</pre>
+  -d '{"model_id":"sentiment","input":{"text":"The stock market rallied today"}}'</pre>
 
             <h4>Upload &amp; prove your own model</h4>
 <pre>curl -X POST https://clawproof.onrender.com/prove/model \
@@ -224,7 +224,7 @@
 from clawproof import ClawProof
 cp = ClawProof()
 receipt = cp.prove_and_wait("sentiment",
-    text="I love this product")
+    text="The stock market rallied today")
 print(receipt.output.label)</pre>
 
             <h4>JavaScript SDK</h4>
@@ -233,7 +233,7 @@ print(receipt.output.label)</pre>
 import { ClawProof } from "clawproof";
 const cp = new ClawProof();
 const receipt = await cp.proveAndWait("sentiment", {
-  text: "I love this product"
+  text: "The stock market rallied today"
 });</pre>
 
             <h4>MCP (Claude Desktop)</h4>

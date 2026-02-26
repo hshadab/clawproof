@@ -1,8 +1,8 @@
 id = "spam_detector"
-name = "SMS Spam Detector"
-description = "Classifies SMS messages as ham (legitimate) or spam. Trained on the Kaggle Spam SMS dataset."
-input_type = "text"
-input_dim = 100
-input_shape = [1, 100]
-labels = ["HAM", "SPAM"]
-trace_length = 16384
+name = "Simple MLP Demo"
+description = "A minimal multi-layer perceptron for demonstrating raw-vector inference and zkML proof generation. 8-dimensional input, 4 output classes."
+input_type = "raw"
+input_dim = 8
+input_shape = [1, 8]
+labels = ["CLASS_0", "CLASS_1", "CLASS_2", "CLASS_3"]
+trace_length = 4096
