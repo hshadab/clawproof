@@ -22,6 +22,8 @@ use tower::buffer::BufferLayer;
 use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 use tracing::info;
 
+use regex::Regex;
+
 use ark_bn254::Fr;
 use jolt_core::poly::commitment::dory::DoryCommitmentScheme;
 use jolt_core::transcripts::KeccakTranscript;
@@ -37,6 +39,112 @@ use crate::state::{AppState, PreprocessingCache, VocabData};
 #[allow(clippy::upper_case_acronyms)]
 type PCS = DoryCommitmentScheme;
 type Snark = JoltSNARK<Fr, PCS, KeccakTranscript>;
+
+/// Solve Moltbook verification challenges (lobster-themed arithmetic).
+/// Strips junk chars, extracts number words, determines operation, computes answer.
+fn solve_moltbook_challenge(challenge: &str) -> Option<String> {
+    // Strip non-alpha/space chars, normalize to lowercase
+    let clean: String = challenge.chars()
+        .map(|c| if c.is_alphabetic() || c.is_whitespace() { c.to_ascii_lowercase() } else { ' ' })
+        .collect();
+    // Collapse repeated letters (e.g., "looobster" -> "lobster", "thhree" -> "three")
+    let re_dup = Regex::new(r"(.)\1{2,}").ok()?;
+    let clean = re_dup.replace_all(&clean, "$1$1");
+    // Collapse whitespace
+    let re_ws = Regex::new(r"\s+").ok()?;
+    let clean = re_ws.replace_all(&clean, " ");
+
+    let word_to_num: Vec<(&str, f64)> = vec![
+        ("zero", 0.0), ("one", 1.0), ("two", 2.0), ("three", 3.0), ("four", 4.0),
+        ("five", 5.0), ("six", 6.0), ("seven", 7.0), ("eight", 8.0), ("nine", 9.0),
+        ("ten", 10.0), ("eleven", 11.0), ("twelve", 12.0), ("thirteen", 13.0),
+        ("fourteen", 14.0), ("fifteen", 15.0), ("sixteen", 16.0), ("seventeen", 17.0),
+        ("eighteen", 18.0), ("nineteen", 19.0), ("twenty", 20.0), ("thirty", 30.0),
+        ("forty", 40.0), ("fifty", 50.0), ("sixty", 60.0), ("seventy", 70.0),
+        ("eighty", 80.0), ("ninety", 90.0), ("hundred", 100.0),
+    ];
+
+    // Extract all number words in order and build compound numbers
+    let words: Vec<&str> = clean.split_whitespace().collect();
+    let mut numbers: Vec<f64> = Vec::new();
+    let mut current: Option<f64> = None;
+
+    for w in &words {
+        if let Some(&(_, val)) = word_to_num.iter().find(|&&(name, _)| name == *w) {
+            if val == 100.0 {
+                // "hundred" multiplies the current accumulator
+                current = Some(current.unwrap_or(1.0) * 100.0);
+            } else if val >= 20.0 && val < 100.0 {
+                // Tens place — start or extend a compound
+                if let Some(c) = current {
+                    if c < 20.0 {
+                        // previous was a single digit that's part of a different number
+                        numbers.push(c);
+                        current = Some(val);
+                    } else {
+                        numbers.push(c);
+                        current = Some(val);
+                    }
+                } else {
+                    current = Some(val);
+                }
+            } else {
+                // Units (0-19)
+                if let Some(c) = current {
+                    if c >= 20.0 && c % 10.0 == 0.0 && c < 100.0 {
+                        // Compound: twenty + three = 23
+                        current = Some(c + val);
+                    } else {
+                        numbers.push(c);
+                        current = Some(val);
+                    }
+                } else {
+                    current = Some(val);
+                }
+            }
+        } else if current.is_some() {
+            // Non-number word breaks the current compound
+            if let Some(c) = current.take() {
+                numbers.push(c);
+            }
+        }
+    }
+    if let Some(c) = current {
+        numbers.push(c);
+    }
+
+    if numbers.len() < 2 {
+        return None;
+    }
+
+    // Determine operation from cleaned text
+    let is_subtract = clean.contains("slow") || clean.contains("lose")
+        || clean.contains("less") || clean.contains("subtract")
+        || clean.contains("minus") || clean.contains("decreas")
+        || clean.contains("reduc") || clean.contains("drop")
+        || clean.contains("fell") || clean.contains("lost");
+
+    let is_multiply = clean.contains("times") || clean.contains("multipl")
+        || clean.contains("product");
+
+    let is_divide = clean.contains("divid") || clean.contains("split")
+        || clean.contains("per each") || clean.contains("shared equal");
+
+    let a = numbers[0];
+    let b = numbers[1];
+
+    let result = if is_subtract {
+        a - b
+    } else if is_multiply {
+        a * b
+    } else if is_divide && b != 0.0 {
+        a / b
+    } else {
+        a + b // default: addition (total, combined, adds, etc.)
+    };
+
+    Some(format!("{:.2}", result))
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -392,7 +500,56 @@ async fn main() -> anyhow::Result<()> {
                     .send().await
                 {
                     Ok(resp) => {
-                        info!("[moltbook] Posted to m/{} (cycle {}): {} — {}", submolt, cycle, resp.status(), title);
+                        let status = resp.status();
+                        info!("[moltbook] Posted to m/{} (cycle {}): {} — {}", submolt, cycle, status, title);
+
+                        // Parse response to solve verification challenge
+                        if let Ok(body) = resp.text().await {
+                            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
+                                let verification = json.get("post")
+                                    .and_then(|p| p.get("verification"))
+                                    .or_else(|| json.get("verification"));
+
+                                if let Some(v) = verification {
+                                    let code = v.get("verification_code")
+                                        .and_then(|c| c.as_str());
+                                    let challenge = v.get("challenge_text")
+                                        .and_then(|c| c.as_str());
+
+                                    if let (Some(code), Some(challenge)) = (code, challenge) {
+                                        info!("[moltbook] Verification challenge: {}", challenge);
+                                        if let Some(answer) = solve_moltbook_challenge(challenge) {
+                                            info!("[moltbook] Solving with answer: {}", answer);
+                                            let verify_body = serde_json::json!({
+                                                "verification_code": code,
+                                                "answer": answer
+                                            });
+                                            match client.post(format!("{}/posts/verify", base))
+                                                .header("Authorization", &auth)
+                                                .header("Content-Type", "application/json")
+                                                .body(verify_body.to_string())
+                                                .send().await
+                                            {
+                                                Ok(vr) => {
+                                                    let vs = vr.status();
+                                                    let vb = vr.text().await.unwrap_or_default();
+                                                    if vs.is_success() {
+                                                        info!("[moltbook] Verification solved! Post is live. (cycle {})", cycle);
+                                                    } else {
+                                                        tracing::warn!("[moltbook] Verification failed {}: {} (cycle {})", vs, vb, cycle);
+                                                    }
+                                                }
+                                                Err(e) => {
+                                                    tracing::warn!("[moltbook] Verify request failed: {:?}", e);
+                                                }
+                                            }
+                                        } else {
+                                            tracing::warn!("[moltbook] Could not solve challenge: {}", challenge);
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                     Err(e) => {
                         tracing::warn!("[moltbook] Post failed (cycle {}): {:?}", cycle, e);

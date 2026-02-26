@@ -505,6 +505,36 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a822ea5bc7590f9d40f1ba12c0dc3c2760f3482c6984db1573ad11031420831"
 
 [[package]]
+name = "clawproof"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ark-bn254",
+ "ark-serialize",
+ "ark-std",
+ "axum",
+ "chrono",
+ "dashmap",
+ "hex",
+ "jolt-core",
+ "onnx-tracer",
+ "regex",
+ "reqwest",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha3",
+ "tokio",
+ "toml",
+ "tower",
+ "tower-http 0.5.2",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+ "zkml-jolt-core",
+]
+
+[[package]]
 name = "cobs"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2357,36 +2387,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fd00f0bb2e90d81d1044c2b32617f68fcb9fa3bb7640c23e9c748e53fb30934"
 dependencies = [
  "unicode-ident",
-]
-
-[[package]]
-name = "clawproof"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "ark-bn254",
- "ark-serialize",
- "ark-std",
- "axum",
- "chrono",
- "dashmap",
- "hex",
- "jolt-core",
- "onnx-tracer",
- "regex",
- "reqwest",
- "rusqlite",
- "serde",
- "serde_json",
- "sha3",
- "tokio",
- "toml",
- "tower",
- "tower-http 0.5.2",
- "tracing",
- "tracing-subscriber",
- "uuid",
- "zkml-jolt-core",
 ]
 
 [[package]]
