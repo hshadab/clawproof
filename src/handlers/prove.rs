@@ -40,6 +40,7 @@ pub struct ProveResponse {
     pub model_id: String,
     pub output: InferenceOutput,
     pub status: String,
+    pub proof_string: String,
 }
 
 #[derive(Serialize)]
@@ -400,11 +401,14 @@ pub async fn run_single_prove(
 
     let receipt_url = format!("{}/receipt/{}", state.config.base_url, receipt_id);
 
+    let proof_string = format!("clawproof:{}:{}:proving", receipt_id, output.label);
+
     Ok(ProveResponse {
         receipt_id,
         receipt_url,
         model_id,
         output,
         status: "proving".to_string(),
+        proof_string,
     })
 }

@@ -79,7 +79,13 @@ pub async fn get_receipt(
         .unwrap_or("text/html");
 
     if accept.contains("application/json") {
-        Json(receipt).into_response()
+        let mut json = serde_json::to_value(&receipt).unwrap_or_default();
+        let status_str = receipt.status.as_str();
+        let proof_string = format!("clawproof:{}:{}:{}", receipt.id, receipt.output.label, status_str);
+        if let Some(obj) = json.as_object_mut() {
+            obj.insert("proof_string".to_string(), serde_json::Value::String(proof_string));
+        }
+        Json(json).into_response()
     } else {
         let html = receipt_page::render(&receipt, &state.config.base_url);
         Html(html).into_response()

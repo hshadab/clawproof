@@ -62,6 +62,30 @@ pub fn render(receipt: &Receipt, base_url: &str) -> String {
         .unwrap_or_else(|| "\u{2014}".to_string());
 
     let receipt_url = format!("{}/receipt/{}", base_url, receipt.id);
+    let badge_url = format!("{}/badge/{}", base_url, receipt.id);
+    let proof_string = format!("clawproof:{}:{}:{}", receipt.id, receipt.output.label, receipt.status.as_str());
+
+    // OG description
+    let og_description = format!(
+        "Cryptographically verified ML inference. Model: {}. Result: {} ({:.1}% confidence). Status: {}.",
+        receipt.model_name,
+        receipt.output.label,
+        receipt.output.confidence * 100.0,
+        status_label,
+    );
+    let og_title = format!(
+        "ClawProof \u{2014} {} ({:.1}%)",
+        receipt.output.label,
+        receipt.output.confidence * 100.0,
+    );
+
+    // Pre-formatted share texts (escaped for JS strings)
+    let verify_me_text = format!(
+        "I made this decision: {} ({:.1}% confidence). Don\\'t trust me \u{2014} verify it mathematically: {}",
+        receipt.output.label,
+        receipt.output.confidence * 100.0,
+        receipt_url,
+    );
 
     format!(
         r#"<!DOCTYPE html>
@@ -70,7 +94,22 @@ pub fn render(receipt: &Receipt, base_url: &str) -> String {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     {auto_refresh}
-    <title>Receipt — ClawProof</title>
+    <title>{og_title}</title>
+
+    <!-- OpenGraph -->
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="{og_title}" />
+    <meta property="og:description" content="{og_description}" />
+    <meta property="og:url" content="{receipt_url}" />
+    <meta property="og:image" content="{badge_url}" />
+    <meta property="og:site_name" content="ClawProof" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="{og_title}" />
+    <meta name="twitter:description" content="{og_description}" />
+    <meta name="twitter:image" content="{badge_url}" />
+
     <style>
         *, *::before, *::after {{ margin: 0; padding: 0; box-sizing: border-box; }}
 
@@ -214,16 +253,53 @@ pub fn render(receipt: &Receipt, base_url: &str) -> String {
             padding: 0.875rem 1rem; color: var(--red); font-size: 0.8125rem;
         }}
 
-        /* Share link */
-        .share-bar {{
+        /* Proof string */
+        .proof-string-bar {{
+            display: flex; align-items: center; gap: 0.5rem;
+            padding: 0.5rem 0.75rem; border: 1px solid var(--border);
+            border-radius: 6px; background: var(--bg-secondary); margin-bottom: 0.75rem;
+        }}
+        .proof-string-label {{
+            font-size: 0.6875rem; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--text-tertiary); flex-shrink: 0;
+        }}
+        .proof-string-value {{
+            font-family: var(--mono); font-size: 0.75rem; color: var(--accent);
+            word-break: break-all; flex: 1; min-width: 0;
+        }}
+
+        /* Share section */
+        .share-section {{ margin-bottom: 1rem; }}
+        .share-section-header {{
+            font-size: 0.6875rem; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--text-tertiary); margin-bottom: 0.5rem;
+        }}
+        .share-url-bar {{
             display: flex; align-items: center; justify-content: space-between;
-            padding: 0.625rem 0.75rem; border: 1px solid var(--border-light);
-            border-radius: 6px; background: var(--bg-secondary); margin-bottom: 1rem;
+            padding: 0.5rem 0.75rem; border: 1px solid var(--border-light);
+            border-radius: 6px; background: var(--bg-secondary); margin-bottom: 0.5rem;
         }}
         .share-url {{
             font-family: var(--mono); font-size: 0.6875rem; color: var(--text-secondary);
             word-break: break-all; min-width: 0;
         }}
+        .share-buttons {{
+            display: flex; gap: 0.5rem; flex-wrap: wrap;
+        }}
+        .share-btn {{
+            display: inline-flex; align-items: center; gap: 0.375rem;
+            padding: 0.375rem 0.625rem; font-size: 0.75rem; font-weight: 500;
+            color: var(--text-secondary); background: var(--bg-secondary);
+            border: 1px solid var(--border); border-radius: 6px; cursor: pointer;
+            transition: background 0.15s, border-color 0.15s, color 0.15s;
+            text-decoration: none; line-height: 1.2;
+        }}
+        .share-btn:hover {{ background: var(--bg-tertiary); border-color: var(--accent); color: var(--text-primary); }}
+        .share-btn.primary {{
+            background: var(--accent); color: #fff; border-color: var(--accent);
+        }}
+        .share-btn.primary:hover {{ opacity: 0.9; }}
+        .share-btn svg {{ width: 14px; height: 14px; flex-shrink: 0; }}
         .copy-btn {{
             flex-shrink: 0; margin-left: 0.75rem; padding: 0.25rem 0.5rem;
             font-size: 0.6875rem; font-weight: 500; color: var(--text-secondary); background: var(--bg);
@@ -231,6 +307,18 @@ pub fn render(receipt: &Receipt, base_url: &str) -> String {
             transition: background 0.15s, border-color 0.15s;
         }}
         .copy-btn:hover {{ background: var(--bg-secondary); border-color: var(--accent); }}
+
+        /* Toast notification */
+        .toast {{
+            position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%) translateY(100px);
+            background: var(--bg-tertiary); color: var(--text-primary); padding: 0.5rem 1rem;
+            border-radius: 6px; font-size: 0.8125rem; border: 1px solid var(--border);
+            opacity: 0; transition: transform 0.3s ease, opacity 0.3s ease; z-index: 100;
+            pointer-events: none;
+        }}
+        .toast.show {{
+            transform: translateX(-50%) translateY(0); opacity: 1;
+        }}
 
         .footer {{
             text-align: center; margin-top: 2.5rem; padding-top: 1.25rem;
@@ -260,6 +348,12 @@ pub fn render(receipt: &Receipt, base_url: &str) -> String {
             <div class="prediction-confidence">{confidence:.1}% confidence</div>
         </div>
 
+        <div class="proof-string-bar">
+            <span class="proof-string-label">Proof ID</span>
+            <span class="proof-string-value" id="proof-string">{proof_string}</span>
+            <button class="copy-btn" onclick="copyText(document.getElementById('proof-string').textContent, 'Proof string copied')">Copy</button>
+        </div>
+
         <div class="card">
             <div class="card-header">Model</div>
             <div class="row"><span class="row-label">Name</span><span class="row-value">{model_name}</span></div>
@@ -282,9 +376,27 @@ pub fn render(receipt: &Receipt, base_url: &str) -> String {
             <div class="row last"><span class="row-label">Completed</span><span class="row-value">{completed_at}</span></div>
         </div>
 
-        <div class="share-bar">
-            <span class="share-url" id="share-url">{receipt_url}</span>
-            <button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('share-url').textContent)">Copy</button>
+        <!-- Share section -->
+        <div class="share-section">
+            <div class="share-section-header">Share this proof</div>
+            <div class="share-url-bar">
+                <span class="share-url" id="share-url">{receipt_url}</span>
+                <button class="copy-btn" onclick="copyText(document.getElementById('share-url').textContent, 'Link copied')">Copy</button>
+            </div>
+            <div class="share-buttons">
+                <a class="share-btn primary" id="x-share-btn" href="https://x.com/intent/tweet?text={x_share_text_encoded}" target="_blank" rel="noopener">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                    Share on X
+                </a>
+                <button class="share-btn" onclick="copyVerifyMe()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+                    Copy "Verify me"
+                </button>
+                <button class="share-btn" onclick="copyText(document.getElementById('proof-string').textContent, 'Proof string copied')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    Copy proof string
+                </button>
+            </div>
         </div>
 
         <div class="footer">
@@ -293,6 +405,8 @@ pub fn render(receipt: &Receipt, base_url: &str) -> String {
             Open source (MIT)
         </div>
     </div>
+
+    <div class="toast" id="toast"></div>
 
     <script>
     function initTheme() {{
@@ -311,6 +425,27 @@ pub fn render(receipt: &Receipt, base_url: &str) -> String {
     function updateToggleIcon(theme) {{
         document.getElementById('theme-toggle').textContent = theme === 'dark' ? '\u2600' : '\u263E';
     }}
+
+    function copyText(text, msg) {{
+        navigator.clipboard.writeText(text).then(function() {{
+            showToast(msg || 'Copied');
+        }});
+    }}
+
+    function copyVerifyMe() {{
+        var text = '{verify_me_text}';
+        navigator.clipboard.writeText(text).then(function() {{
+            showToast('"Verify me" message copied');
+        }});
+    }}
+
+    function showToast(msg) {{
+        var el = document.getElementById('toast');
+        el.textContent = msg;
+        el.classList.add('show');
+        setTimeout(function() {{ el.classList.remove('show'); }}, 2000);
+    }}
+
     initTheme();
     </script>
 </body>
@@ -327,8 +462,19 @@ pub fn render(receipt: &Receipt, base_url: &str) -> String {
         input_hash = receipt.input_hash,
         output_hash = receipt.output_hash,
         proof_section = proof_section,
+        proof_string = proof_string,
         created_at = receipt.created_at.format("%Y-%m-%d %H:%M:%S UTC"),
         completed_at = completed_at,
         receipt_url = receipt_url,
+        badge_url = badge_url,
+        og_title = og_title,
+        og_description = og_description,
+        x_share_text_encoded = urlencoding::encode(&format!(
+            "My agent classified this as {} ({:.1}% confidence) \u{2014} cryptographically verified with a SNARK proof.\n\nDon't trust me, verify it:\n{}",
+            receipt.output.label,
+            receipt.output.confidence * 100.0,
+            receipt_url,
+        )),
+        verify_me_text = verify_me_text,
     )
 }
