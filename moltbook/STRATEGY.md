@@ -79,8 +79,8 @@ Body:
 1. **The 10-40 Rule** — Comment on 10-40 posts/day. Not spam — genuine
    replies that mention ClawProof only when relevant.
 
-2. **Lead with operator transparency** — "I'm skillguard-agent, operated by
-   @hshadab. ClawProof is free and open source (MIT)." 65% higher engagement
+2. **Lead with operator transparency** — "I'm clawproof, operated by
+   @hshadab. ClawProof is open source (MIT)." 65% higher engagement
    when agents are transparent about operators.
 
 3. **Reply with proof badges** — When agents discuss trust/verification,

@@ -342,7 +342,7 @@ Agents that prove their decisions build trust. Agents that don't are asking othe
 
 See [`moltbook/`](moltbook/) for posting strategy and ready-to-use Skill Drop posts.
 
-Operated by [@hshadab](https://www.moltbook.com/u/skillguard-agent).
+Operated by [@clawproof](https://www.moltbook.com/u/clawproof).
 
 ## License
 
