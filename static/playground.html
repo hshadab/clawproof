@@ -216,8 +216,11 @@
         <!-- One-click demo -->
         <div class="demo">
             <h2>See it work</h2>
-            <p>Generate a real SNARK proof in one click. We'll classify a sample transaction and prove the result cryptographically.</p>
-            <button class="demo-btn" id="demo-btn" onclick="runDemo()">Prove it</button>
+            <p>Generate a real SNARK proof in one click. Pick a model and we'll prove the inference cryptographically.</p>
+            <div style="display:flex;gap:0.5rem;justify-content:center;margin-bottom:0.75rem;">
+                <button class="demo-btn" id="demo-btn-auth" onclick="runDemo('authorization')" style="font-size:0.8125rem;padding:0.5rem 1rem;">Authorize a Transaction</button>
+                <button class="demo-btn" id="demo-btn-trust" onclick="runDemo('agent_trust')" style="font-size:0.8125rem;padding:0.5rem 1rem;">Score Agent Trust</button>
+            </div>
             <div class="demo-result" id="demo-result">
                 <div class="demo-label" id="demo-label"></div>
                 <div class="demo-meta" id="demo-confidence"></div>
@@ -295,6 +298,11 @@
 <pre>curl -X POST https://clawproof.onrender.com/prove \
   -H "Content-Type: application/json" \
   -d '{"model_id":"sentiment","input":{"text":"The stock market rallied today"}}'</pre>
+
+            <h4>Agent trust scoring</h4>
+<pre>curl -X POST https://clawproof.onrender.com/prove \
+  -H "Content-Type: application/json" \
+  -d '{"model_id":"agent_trust","input":{"fields":{"karma":8,"account_age":5,"follower_ratio":3,"post_frequency":2,"verification":2,"content_similarity":0,"interaction_type":1}}}'</pre>
 
             <h4>Upload &amp; prove your own model</h4>
 <pre>curl -X POST https://clawproof.onrender.com/prove/model \
@@ -519,16 +527,25 @@ function startDashboardRefresh() {
 }
 
 // --- Demo ---
-async function runDemo() {
-    const btn = document.getElementById('demo-btn');
+const DEMO_PAYLOADS = {
+    authorization: {model_id:'authorization',input:{fields:{budget:13,trust:3,amount:4,category:1,velocity:1,day:2,time:0}}},
+    agent_trust: {model_id:'agent_trust',input:{fields:{karma:8,account_age:5,follower_ratio:3,post_frequency:2,verification:2,content_similarity:0,interaction_type:1}}}
+};
+
+async function runDemo(modelId) {
+    const btnAuth = document.getElementById('demo-btn-auth');
+    const btnTrust = document.getElementById('demo-btn-trust');
     const res = document.getElementById('demo-result');
-    btn.disabled = true; btn.textContent = 'Proving...';
+    btnAuth.disabled = true; btnTrust.disabled = true;
+    const activeBtn = modelId === 'agent_trust' ? btnTrust : btnAuth;
+    activeBtn.textContent = 'Proving...';
     res.style.display = 'none';
 
     try {
+        const payload = DEMO_PAYLOADS[modelId] || DEMO_PAYLOADS.authorization;
         const r = await fetch('/prove', {
             method: 'POST', headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({model_id:'authorization',input:{fields:{budget:13,trust:3,amount:4,category:1,velocity:1,day:2,time:0}}})
+            body: JSON.stringify(payload)
         });
         const data = await r.json();
         if (!r.ok) throw new Error(data.error || 'Request failed');
@@ -547,7 +564,8 @@ async function runDemo() {
         document.getElementById('demo-label').textContent = 'Error';
         document.getElementById('demo-confidence').textContent = e.message;
     }
-    btn.disabled = false; btn.textContent = 'Prove it';
+    btnAuth.disabled = false; btnAuth.textContent = 'Authorize a Transaction';
+    btnTrust.disabled = false; btnTrust.textContent = 'Score Agent Trust';
 }
 
 function setDot(dotId, textId, status) {
