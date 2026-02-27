@@ -2,29 +2,22 @@ use crate::crypto;
 use crate::receipt::{ReceiptStatus, ReceiptStore};
 use crate::state::PreprocessingCache;
 
-use ark_bn254::Fr;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use dashmap::DashMap;
-use jolt_core::poly::commitment::dory::DoryCommitmentScheme;
-use jolt_core::transcripts::KeccakTranscript;
 use onnx_tracer::{model, tensor::Tensor, ProgramIO};
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 use tracing::{error, info};
-use zkml_jolt_core::jolt::JoltSNARK;
 
-#[allow(clippy::upper_case_acronyms)]
-type PCS = DoryCommitmentScheme;
-type Snark = JoltSNARK<Fr, PCS, KeccakTranscript>;
+use crate::config::Config;
+use crate::state::Snark;
 
 pub fn prove_and_verify(
     receipt_id: String,
     receipt_store: ReceiptStore,
     preprocessing_map: Arc<DashMap<String, PreprocessingCache>>,
     model_id: String,
-    models_dir: PathBuf,
-    uploaded_models_dir: PathBuf,
+    config: Config,
     input_tensor: Tensor<i32>,
     webhook_url: Option<String>,
 ) {
@@ -51,14 +44,7 @@ pub fn prove_and_verify(
         );
         let prove_start = Instant::now();
 
-        let model_path = {
-            let default_path = models_dir.join(&model_id).join("network.onnx");
-            if default_path.exists() {
-                default_path
-            } else {
-                uploaded_models_dir.join(&model_id).join("network.onnx")
-            }
-        };
+        let model_path = config.resolve_model_path(&model_id);
         let model_path_for_prove = model_path.clone();
         let prove_fn = || model(&model_path_for_prove);
 

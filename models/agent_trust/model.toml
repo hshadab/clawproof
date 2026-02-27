@@ -1,0 +1,50 @@
+id = "agent_trust"
+name = "Agent Trust Classifier"
+description = "Classifies agent interactions as TRUSTED, SUSPICIOUS, or REJECT based on Moltbook-style agent metadata. Designed for verifiable agent-to-agent trust scoring."
+input_type = "structured_fields"
+input_dim = 44
+input_shape = [1, 44]
+labels = ["TRUSTED", "SUSPICIOUS", "REJECT"]
+trace_length = 16384
+
+[[fields]]
+name = "karma"
+description = "Moltbook karma score (bucketed 0-10)"
+min = 0
+max = 10
+
+[[fields]]
+name = "account_age"
+description = "Days since registration (bucketed 0-7)"
+min = 0
+max = 7
+
+[[fields]]
+name = "follower_ratio"
+description = "Followers/following ratio (bucketed 0-5)"
+min = 0
+max = 5
+
+[[fields]]
+name = "post_frequency"
+description = "Posts per day (bucketed 0-5)"
+min = 0
+max = 5
+
+[[fields]]
+name = "verification"
+description = "Verification level: 0=none, 1=email, 2=X-verified"
+min = 0
+max = 2
+
+[[fields]]
+name = "content_similarity"
+description = "Similarity to known spam content (bucketed 0-5)"
+min = 0
+max = 5
+
+[[fields]]
+name = "interaction_type"
+description = "Interaction: 0=post, 1=comment, 2=DM, 3=trade"
+min = 0
+max = 3

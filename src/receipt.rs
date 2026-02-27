@@ -4,7 +4,7 @@ use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
@@ -86,7 +86,7 @@ impl SqliteStore {
     }
 
     fn init(&self) -> anyhow::Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().expect("SQLite connection lock poisoned");
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS receipts (
                 id TEXT PRIMARY KEY,
@@ -113,7 +113,7 @@ impl SqliteStore {
     }
 
     pub fn insert(&self, receipt: &Receipt) {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().expect("SQLite connection lock poisoned");
         let output_json = serde_json::to_string(&receipt.output).unwrap_or_default();
         if let Err(e) = conn.execute(
             "INSERT OR REPLACE INTO receipts (id, model_id, model_name, status, created_at, completed_at, model_hash, input_hash, output_hash, output_json, proof_hash, proof_size, prove_time_ms, verify_time_ms, error) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
@@ -140,7 +140,7 @@ impl SqliteStore {
     }
 
     pub fn get(&self, id: &str) -> Option<Receipt> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().expect("SQLite connection lock poisoned");
         conn.query_row(
             "SELECT id, model_id, model_name, status, created_at, completed_at, model_hash, input_hash, output_hash, output_json, proof_hash, proof_size, prove_time_ms, verify_time_ms, error FROM receipts WHERE id = ?1",
             rusqlite::params![id],
@@ -187,38 +187,32 @@ impl SqliteStore {
     }
 
     pub fn get_stats(&self) -> ReceiptStats {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().expect("SQLite connection lock poisoned");
         let mut stats = ReceiptStats::default();
 
-        // Total
-        stats.total_proofs = conn
-            .query_row("SELECT COUNT(*) FROM receipts", [], |row| row.get(0))
-            .unwrap_or(0);
+        // Single query for counts and averages
+        let _ = conn.query_row(
+            "SELECT \
+                COUNT(*), \
+                SUM(CASE WHEN status = 'verified' THEN 1 ELSE 0 END), \
+                SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), \
+                SUM(CASE WHEN status = 'proving' THEN 1 ELSE 0 END), \
+                AVG(CASE WHEN prove_time_ms IS NOT NULL THEN prove_time_ms END), \
+                AVG(CASE WHEN verify_time_ms IS NOT NULL THEN verify_time_ms END) \
+            FROM receipts",
+            [],
+            |row| {
+                stats.total_proofs = row.get(0).unwrap_or(0);
+                stats.verified = row.get(1).unwrap_or(0);
+                stats.failed = row.get(2).unwrap_or(0);
+                stats.proving = row.get(3).unwrap_or(0);
+                stats.avg_prove_time_ms = row.get(4).unwrap_or(None);
+                stats.avg_verify_time_ms = row.get(5).unwrap_or(None);
+                Ok(())
+            },
+        );
 
-        // By status
-        stats.verified = conn
-            .query_row(
-                "SELECT COUNT(*) FROM receipts WHERE status = 'verified'",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap_or(0);
-        stats.failed = conn
-            .query_row(
-                "SELECT COUNT(*) FROM receipts WHERE status = 'failed'",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap_or(0);
-        stats.proving = conn
-            .query_row(
-                "SELECT COUNT(*) FROM receipts WHERE status = 'proving'",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap_or(0);
-
-        // By model
+        // By model (second query — GROUP BY)
         if let Ok(mut stmt) =
             conn.prepare("SELECT model_id, COUNT(*) FROM receipts GROUP BY model_id")
         {
@@ -231,27 +225,11 @@ impl SqliteStore {
             }
         }
 
-        // Average times
-        stats.avg_prove_time_ms = conn
-            .query_row(
-                "SELECT AVG(prove_time_ms) FROM receipts WHERE prove_time_ms IS NOT NULL",
-                [],
-                |row| row.get::<_, Option<f64>>(0),
-            )
-            .unwrap_or(None);
-        stats.avg_verify_time_ms = conn
-            .query_row(
-                "SELECT AVG(verify_time_ms) FROM receipts WHERE verify_time_ms IS NOT NULL",
-                [],
-                |row| row.get::<_, Option<f64>>(0),
-            )
-            .unwrap_or(None);
-
         stats
     }
 
     pub fn list_recent(&self, limit: u64) -> Vec<ReceiptSummary> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().expect("SQLite connection lock poisoned");
         let mut stmt = match conn.prepare(
             "SELECT id, model_id, model_name, status, created_at, output_json, prove_time_ms, verify_time_ms FROM receipts ORDER BY created_at DESC LIMIT ?1",
         ) {
@@ -379,6 +357,16 @@ impl ReceiptStore {
             let _ = tokio::task::spawn_blocking(move || {
                 db.insert(&receipt);
             });
+        } else if let Some(mut receipt) = self.db.get(id) {
+            // Receipt was evicted from cache — load from SQLite, apply mutation, write back
+            f(&mut receipt);
+            self.cache.insert(receipt.id.clone(), receipt.clone());
+            let db = self.db.clone();
+            let _ = tokio::task::spawn_blocking(move || {
+                db.insert(&receipt);
+            });
+        } else {
+            warn!("[clawproof] update called for unknown receipt {}", id);
         }
     }
 

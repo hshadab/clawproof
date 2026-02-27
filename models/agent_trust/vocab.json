@@ -1,0 +1,240 @@
+{
+  "vocab_mapping": {
+    "karma_0": {
+      "index": 0,
+      "feature_type": "karma"
+    },
+    "karma_1": {
+      "index": 1,
+      "feature_type": "karma"
+    },
+    "karma_2": {
+      "index": 2,
+      "feature_type": "karma"
+    },
+    "karma_3": {
+      "index": 3,
+      "feature_type": "karma"
+    },
+    "karma_4": {
+      "index": 4,
+      "feature_type": "karma"
+    },
+    "karma_5": {
+      "index": 5,
+      "feature_type": "karma"
+    },
+    "karma_6": {
+      "index": 6,
+      "feature_type": "karma"
+    },
+    "karma_7": {
+      "index": 7,
+      "feature_type": "karma"
+    },
+    "karma_8": {
+      "index": 8,
+      "feature_type": "karma"
+    },
+    "karma_9": {
+      "index": 9,
+      "feature_type": "karma"
+    },
+    "karma_10": {
+      "index": 10,
+      "feature_type": "karma"
+    },
+    "account_age_0": {
+      "index": 11,
+      "feature_type": "account_age"
+    },
+    "account_age_1": {
+      "index": 12,
+      "feature_type": "account_age"
+    },
+    "account_age_2": {
+      "index": 13,
+      "feature_type": "account_age"
+    },
+    "account_age_3": {
+      "index": 14,
+      "feature_type": "account_age"
+    },
+    "account_age_4": {
+      "index": 15,
+      "feature_type": "account_age"
+    },
+    "account_age_5": {
+      "index": 16,
+      "feature_type": "account_age"
+    },
+    "account_age_6": {
+      "index": 17,
+      "feature_type": "account_age"
+    },
+    "account_age_7": {
+      "index": 18,
+      "feature_type": "account_age"
+    },
+    "follower_ratio_0": {
+      "index": 19,
+      "feature_type": "follower_ratio"
+    },
+    "follower_ratio_1": {
+      "index": 20,
+      "feature_type": "follower_ratio"
+    },
+    "follower_ratio_2": {
+      "index": 21,
+      "feature_type": "follower_ratio"
+    },
+    "follower_ratio_3": {
+      "index": 22,
+      "feature_type": "follower_ratio"
+    },
+    "follower_ratio_4": {
+      "index": 23,
+      "feature_type": "follower_ratio"
+    },
+    "follower_ratio_5": {
+      "index": 24,
+      "feature_type": "follower_ratio"
+    },
+    "post_frequency_0": {
+      "index": 25,
+      "feature_type": "post_frequency"
+    },
+    "post_frequency_1": {
+      "index": 26,
+      "feature_type": "post_frequency"
+    },
+    "post_frequency_2": {
+      "index": 27,
+      "feature_type": "post_frequency"
+    },
+    "post_frequency_3": {
+      "index": 28,
+      "feature_type": "post_frequency"
+    },
+    "post_frequency_4": {
+      "index": 29,
+      "feature_type": "post_frequency"
+    },
+    "post_frequency_5": {
+      "index": 30,
+      "feature_type": "post_frequency"
+    },
+    "verification_0": {
+      "index": 31,
+      "feature_type": "verification"
+    },
+    "verification_1": {
+      "index": 32,
+      "feature_type": "verification"
+    },
+    "verification_2": {
+      "index": 33,
+      "feature_type": "verification"
+    },
+    "content_similarity_0": {
+      "index": 34,
+      "feature_type": "content_similarity"
+    },
+    "content_similarity_1": {
+      "index": 35,
+      "feature_type": "content_similarity"
+    },
+    "content_similarity_2": {
+      "index": 36,
+      "feature_type": "content_similarity"
+    },
+    "content_similarity_3": {
+      "index": 37,
+      "feature_type": "content_similarity"
+    },
+    "content_similarity_4": {
+      "index": 38,
+      "feature_type": "content_similarity"
+    },
+    "content_similarity_5": {
+      "index": 39,
+      "feature_type": "content_similarity"
+    },
+    "interaction_type_0": {
+      "index": 40,
+      "feature_type": "interaction_type"
+    },
+    "interaction_type_1": {
+      "index": 41,
+      "feature_type": "interaction_type"
+    },
+    "interaction_type_2": {
+      "index": 42,
+      "feature_type": "interaction_type"
+    },
+    "interaction_type_3": {
+      "index": 43,
+      "feature_type": "interaction_type"
+    }
+  },
+  "feature_mapping": {
+    "karma": [
+      "karma_0",
+      "karma_1",
+      "karma_2",
+      "karma_3",
+      "karma_4",
+      "karma_5",
+      "karma_6",
+      "karma_7",
+      "karma_8",
+      "karma_9",
+      "karma_10"
+    ],
+    "account_age": [
+      "account_age_0",
+      "account_age_1",
+      "account_age_2",
+      "account_age_3",
+      "account_age_4",
+      "account_age_5",
+      "account_age_6",
+      "account_age_7"
+    ],
+    "follower_ratio": [
+      "follower_ratio_0",
+      "follower_ratio_1",
+      "follower_ratio_2",
+      "follower_ratio_3",
+      "follower_ratio_4",
+      "follower_ratio_5"
+    ],
+    "post_frequency": [
+      "post_frequency_0",
+      "post_frequency_1",
+      "post_frequency_2",
+      "post_frequency_3",
+      "post_frequency_4",
+      "post_frequency_5"
+    ],
+    "verification": [
+      "verification_0",
+      "verification_1",
+      "verification_2"
+    ],
+    "content_similarity": [
+      "content_similarity_0",
+      "content_similarity_1",
+      "content_similarity_2",
+      "content_similarity_3",
+      "content_similarity_4",
+      "content_similarity_5"
+    ],
+    "interaction_type": [
+      "interaction_type_0",
+      "interaction_type_1",
+      "interaction_type_2",
+      "interaction_type_3"
+    ]
+  }
+}

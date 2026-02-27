@@ -5,18 +5,11 @@ use serde::Serialize;
 use tracing::{error, info};
 
 use super::prove::ErrorResponse;
-use crate::models::{InputType, ModelDescriptor};
-use crate::state::{AppState, PreprocessingCache};
+use crate::crypto;
+use crate::models::{InputType, ModelDescriptor, ModelTomlOutput};
+use crate::state::{AppState, PreprocessingCache, Snark};
 
-use ark_bn254::Fr;
-use jolt_core::poly::commitment::dory::DoryCommitmentScheme;
-use jolt_core::transcripts::KeccakTranscript;
 use onnx_tracer::model;
-use zkml_jolt_core::jolt::JoltSNARK;
-
-#[allow(clippy::upper_case_acronyms)]
-type PCS = DoryCommitmentScheme;
-type Snark = JoltSNARK<Fr, PCS, KeccakTranscript>;
 
 #[derive(Serialize)]
 pub struct UploadResponse {
@@ -194,29 +187,22 @@ pub async fn upload_model(
         }
     }
 
-    // Generate model.toml
-    let toml_content = format!(
-        r#"id = "{model_id}"
-name = "{name}"
-description = "{description}"
-input_type = "raw"
-input_dim = {input_dim}
-input_shape = [1, {input_dim}]
-labels = [{labels_str}]
-trace_length = {trace_length}
-"#,
-        model_id = model_id,
-        name = name,
-        description = description.replace('"', "\\\""),
-        input_dim = input_dim,
-        labels_str = labels
-            .iter()
-            .map(|l| format!("\"{}\"", l))
-            .collect::<Vec<_>>()
-            .join(", "),
-        trace_length = trace_length,
-    );
-    let _ = std::fs::write(model_dir.join("model.toml"), &toml_content);
+    // Generate model.toml using serializer to prevent injection
+    let toml_output = ModelTomlOutput {
+        id: model_id.clone(),
+        name: name.clone(),
+        description: description.clone(),
+        input_type: "raw".to_string(),
+        input_dim,
+        input_shape: vec![1, input_dim],
+        labels: labels.clone(),
+        trace_length,
+    };
+    let _ = toml::to_string_pretty(&toml_output)
+        .map(|content| std::fs::write(model_dir.join("model.toml"), content));
+
+    // Compute model hash from the ONNX bytes we already have in memory
+    let model_hash = Some(crypto::keccak256(&onnx_bytes));
 
     // Register in model registry
     let descriptor = ModelDescriptor {
@@ -229,10 +215,11 @@ trace_length = {trace_length}
         labels,
         trace_length,
         fields: None,
+        model_hash,
     };
 
     {
-        let mut registry = state.registry.write().unwrap();
+        let mut registry = state.registry.write().expect("model registry lock poisoned");
         registry.register(descriptor);
     }
 

@@ -80,7 +80,7 @@ Accept: application/json
 ```
 
 When `status` is `"verified"`, the receipt contains:
-- `model_hash` — SHA-256 of the ONNX model
+- `model_hash` — Keccak256 of the ONNX model
 - `input_hash` — Keccak256 of the input
 - `output_hash` — Keccak256 of the output
 - `proof_hash` — Keccak256 of the SNARK proof
@@ -97,9 +97,11 @@ Content-Type: application/json
 
 Returns `{"valid": true, "status": "verified"}` if the cryptographic proof checks out.
 
-## Built-in model: authorization
+## Built-in models
 
-The default model classifies transactions as AUTHORIZED or DENIED.
+### authorization
+
+Classifies transactions as AUTHORIZED or DENIED.
 
 | Field | Description | Range |
 |-------|-------------|-------|
@@ -110,6 +112,26 @@ The default model classifies transactions as AUTHORIZED or DENIED.
 | velocity | Transaction velocity | 0-7 |
 | day | Day of week | 0-7 |
 | time | Time of day | 0-3 |
+
+### agent_trust
+
+Classifies agent interactions as TRUSTED, SUSPICIOUS, or REJECT. Designed for agent-to-agent trust scoring — prove your trust assessment of another agent with a SNARK so any third party can verify without re-running the model.
+
+| Field | Description | Range |
+|-------|-------------|-------|
+| karma | Moltbook karma score (bucketed) | 0-10 |
+| account_age | Days since registration (bucketed) | 0-7 |
+| follower_ratio | Followers/following ratio (bucketed) | 0-5 |
+| post_frequency | Posts per day (bucketed) | 0-5 |
+| verification | 0=none, 1=email, 2=X-verified | 0-2 |
+| content_similarity | Similarity to known spam (bucketed) | 0-5 |
+| interaction_type | 0=post, 1=comment, 2=DM, 3=trade | 0-3 |
+
+```bash
+curl -s -X POST https://clawproof.onrender.com/prove \
+  -H "Content-Type: application/json" \
+  -d '{"model_id":"agent_trust","input":{"fields":{"karma":8,"account_age":5,"follower_ratio":3,"post_frequency":2,"verification":2,"content_similarity":0,"interaction_type":1}}}'
+```
 
 ## Additional endpoints
 

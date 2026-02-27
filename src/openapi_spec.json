@@ -123,6 +123,23 @@
                     }
                   }
                 },
+                "agent_trust": {
+                  "summary": "Agent trust scoring (agent_trust model)",
+                  "value": {
+                    "model_id": "agent_trust",
+                    "input": {
+                      "fields": {
+                        "karma": 8,
+                        "account_age": 5,
+                        "follower_ratio": 3,
+                        "post_frequency": 2,
+                        "verification": 2,
+                        "content_similarity": 0,
+                        "interaction_type": 1
+                      }
+                    }
+                  }
+                },
                 "raw": {
                   "summary": "Raw integer vector input",
                   "value": {
@@ -1257,17 +1274,17 @@
           },
           "model_hash": {
             "type": "string",
-            "description": "SHA-256 hash commitment of the ONNX model weights. Proves which exact model was used.",
+            "description": "Keccak256 hash commitment of the ONNX model weights. Proves which exact model was used.",
             "example": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
           },
           "input_hash": {
             "type": "string",
-            "description": "SHA-256 hash of the input tensor. Proves which input was provided without revealing the input.",
+            "description": "Keccak256 hash of the input tensor. Proves which input was provided without revealing the input.",
             "example": "sha256:2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae"
           },
           "output_hash": {
             "type": "string",
-            "description": "SHA-256 hash of the output tensor. Binds the output to the proof.",
+            "description": "Keccak256 hash of the output tensor. Binds the output to the proof.",
             "example": "sha256:fcde2b2edba56bf408601fb721fe9b5c338d10ee429ea04fae5511b68fbf8fb9"
           },
           "output": {
@@ -1276,7 +1293,7 @@
           "proof_hash": {
             "type": "string",
             "nullable": true,
-            "description": "SHA-256 hash of the serialized SNARK proof. Null while proving.",
+            "description": "Keccak256 hash of the serialized SNARK proof. Null while proving.",
             "example": "sha256:b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c"
           },
           "proof_size": {

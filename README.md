@@ -240,8 +240,29 @@ Convert PyTorch (.pt), TensorFlow (.pb), or sklearn (.pkl) models to ONNX. Requi
 | Model | Type | Input | Output | Trace |
 |-------|------|-------|--------|-------|
 | `authorization` | Structured fields | 7 fields (budget, trust, amount, category, velocity, day, time) | AUTHORIZED / DENIED | 2^14 |
+| `agent_trust` | Structured fields | 7 fields (karma, account_age, follower_ratio, post_frequency, verification, content_similarity, interaction_type) | TRUSTED / SUSPICIOUS / REJECT | 2^14 |
 | `sentiment` | Text (TF-IDF) | News article text (512-dim TF-IDF vector) | BUSINESS / ENTERTAINMENT / POLITICS / SPORT / TECH | 2^14 |
 | `spam_detector` | Raw vector | 8-dimensional integer vector | CLASS_0 / CLASS_1 / CLASS_2 / CLASS_3 | 2^12 |
+
+### Agent Trust Classifier
+
+The `agent_trust` model is designed for agent-to-agent trust scoring in environments like Moltbook. It classifies interactions based on agent metadata and produces a cryptographic proof of the result, so any other agent can verify the trust assessment without re-running inference or trusting a central authority.
+
+| Field | Description | Range |
+|-------|-------------|-------|
+| karma | Moltbook karma score (bucketed) | 0-10 |
+| account_age | Days since registration (bucketed) | 0-7 |
+| follower_ratio | Followers/following ratio (bucketed) | 0-5 |
+| post_frequency | Posts per day (bucketed) | 0-5 |
+| verification | 0=none, 1=email, 2=X-verified | 0-2 |
+| content_similarity | Similarity to known spam (bucketed) | 0-5 |
+| interaction_type | 0=post, 1=comment, 2=DM, 3=trade | 0-3 |
+
+```bash
+curl -X POST https://clawproof.onrender.com/prove \
+  -H "Content-Type: application/json" \
+  -d '{"model_id":"agent_trust","input":{"fields":{"karma":8,"account_age":5,"follower_ratio":3,"post_frequency":2,"verification":2,"content_similarity":0,"interaction_type":1}}}'
+```
 
 ## Supported ONNX operations
 
@@ -294,6 +315,9 @@ For the full operator source, see [atlas-onnx-tracer/src/ops](https://github.com
 | `CONVERTER_URL` | — | Python converter sidecar URL |
 | `CORS_ORIGINS` | `*` (any) | Comma-separated allowed origins |
 | `RUST_LOG` | `info` | Log level |
+| `MOLTBOOK_API_KEY` | — | API key for Moltbook heartbeat integration |
+| `ADMIN_SECRET` | — | Secret for admin endpoints (e.g. static file updates) |
+| `STATIC_DIR` | `./static` | Path to static HTML/CSS/JS files |
 
 ## Architecture
 

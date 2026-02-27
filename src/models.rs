@@ -1,7 +1,21 @@
 use serde::{Deserialize, Serialize};
+use sha3::{Digest, Keccak256};
 use std::collections::HashMap;
 use std::path::Path;
 use tracing::{info, warn};
+
+/// Serializable struct for safe TOML generation (prevents format-string injection).
+#[derive(Serialize)]
+pub struct ModelTomlOutput {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub input_type: String,
+    pub input_dim: usize,
+    pub input_shape: Vec<usize>,
+    pub labels: Vec<String>,
+    pub trace_length: usize,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -31,6 +45,9 @@ pub struct ModelDescriptor {
     pub trace_length: usize,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fields: Option<Vec<FieldSchema>>,
+    /// Cached Keccak256 hash of the ONNX file, computed once during scan/upload.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model_hash: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -145,6 +162,7 @@ impl ModelRegistry {
             labels: toml_model.labels,
             trace_length: toml_model.trace_length,
             fields,
+            model_hash: None,
         })
     }
 
@@ -163,8 +181,13 @@ impl ModelRegistry {
                 let toml_path = path.join("model.toml");
                 let onnx_path = path.join("network.onnx");
                 if toml_path.exists() && onnx_path.exists() {
-                    if let Some(descriptor) = Self::load_from_toml(&toml_path) {
+                    if let Some(mut descriptor) = Self::load_from_toml(&toml_path) {
                         if !self.models.contains_key(&descriptor.id) {
+                            // Pre-compute model hash from the ONNX file
+                            if let Ok(bytes) = std::fs::read(&onnx_path) {
+                                let hash = format!("0x{}", hex::encode(Keccak256::digest(&bytes)));
+                                descriptor.model_hash = Some(hash);
+                            }
                             info!("[clawproof] Loaded uploaded model: {}", descriptor.id);
                             self.register(descriptor);
                         }

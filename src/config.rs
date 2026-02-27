@@ -62,4 +62,15 @@ impl Config {
             moltbook_api_key,
         }
     }
+
+    /// Resolve the path to `network.onnx` for a given model ID,
+    /// checking the built-in models directory first, then uploaded models.
+    pub fn resolve_model_path(&self, model_id: &str) -> PathBuf {
+        let builtin = self.models_dir.join(model_id).join("network.onnx");
+        if builtin.exists() {
+            builtin
+        } else {
+            self.uploaded_models_dir.join(model_id).join("network.onnx")
+        }
+    }
 }

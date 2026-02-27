@@ -16,7 +16,7 @@ pub struct HealthResponse {
 
 pub async fn health(State(state): State<AppState>) -> Json<HealthResponse> {
     let loaded = state.preprocessing.len();
-    let total = state.registry.read().unwrap().list().len();
+    let total = state.registry.read().expect("model registry lock poisoned").list().len();
     Json(HealthResponse {
         status: "ok".to_string(),
         version: "clawproof-v0.1.0".to_string(),

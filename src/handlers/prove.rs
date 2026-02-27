@@ -78,7 +78,7 @@ pub async fn run_single_prove(
     }
 
     let model_desc = {
-        let registry = state.registry.read().unwrap();
+        let registry = state.registry.read().expect("model registry lock poisoned");
         registry.get(&model_id).cloned().ok_or_else(|| {
             (
                 StatusCode::NOT_FOUND,
@@ -253,27 +253,7 @@ pub async fn run_single_prove(
         })?;
 
     // Run inference (forward pass only)
-    let model_path = state
-        .config
-        .models_dir
-        .join(&model_id)
-        .join("network.onnx");
-
-    // For uploaded models, check uploaded_models_dir too
-    let model_path = if model_path.exists() {
-        model_path
-    } else {
-        let uploaded_path = state
-            .config
-            .uploaded_models_dir
-            .join(&model_id)
-            .join("network.onnx");
-        if uploaded_path.exists() {
-            uploaded_path
-        } else {
-            model_path
-        }
-    };
+    let model_path = state.config.resolve_model_path(&model_id);
 
     // Run inference in a blocking thread with panic protection to avoid
     // taking down the server if the ONNX tracer panics.
@@ -343,16 +323,20 @@ pub async fn run_single_prove(
     // Compute hashes
     let input_hash = crypto::hash_tensor(&input_vector);
     let output_hash = crypto::hash_tensor(&raw_output);
-    let model_hash = crypto::compute_model_commitment(&model_path).map_err(|e| {
-        error!("[clawproof] Failed to compute model commitment: {:?}", e);
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: "Failed to compute model hash".to_string(),
-                hint: None,
-            }),
-        )
-    })?;
+    let model_hash = if let Some(ref cached) = model_desc.model_hash {
+        cached.clone()
+    } else {
+        crypto::compute_model_commitment(&model_path).map_err(|e| {
+            error!("[clawproof] Failed to compute model commitment: {:?}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: "Failed to compute model hash".to_string(),
+                    hint: None,
+                }),
+            )
+        })?
+    };
 
     // Create receipt
     let receipt_id = uuid::Uuid::new_v4().to_string();
@@ -393,8 +377,7 @@ pub async fn run_single_prove(
         state.receipts.clone(),
         state.preprocessing.clone(),
         model_id.clone(),
-        state.config.models_dir.clone(),
-        state.config.uploaded_models_dir.clone(),
+        state.config.clone(),
         input_tensor,
         webhook_url,
     );

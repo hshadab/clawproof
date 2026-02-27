@@ -605,7 +605,8 @@ function selectModel(id) {
 const MODEL_DEFAULTS = {
     sentiment: { text: "The economy showed strong growth this quarter as tech stocks surged" },
     spam_detector: { raw: [1, 0, 3, 2, 1, 0, 2, 1] },
-    authorization: { fields: { budget: 13, trust: 3, amount: 4, category: 1, velocity: 1, day: 2, time: 0 } }
+    authorization: { fields: { budget: 13, trust: 3, amount: 4, category: 1, velocity: 1, day: 2, time: 0 } },
+    agent_trust: { fields: { karma: 8, account_age: 5, follower_ratio: 3, post_frequency: 2, verification: 2, content_similarity: 0, interaction_type: 1 } }
 };
 
 function renderInputs() {

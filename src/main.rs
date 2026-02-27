@@ -12,7 +12,7 @@ use axum::response::Html;
 use axum::routing::{get, post, put};
 use axum::Router;
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, LazyLock, RwLock};
 use std::time::Duration;
 use axum::error_handling::HandleErrorLayer;
 use axum::http::StatusCode;
@@ -22,23 +22,18 @@ use tower::buffer::BufferLayer;
 use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 use tracing::info;
 
-use regex::Regex;
-
-use ark_bn254::Fr;
-use jolt_core::poly::commitment::dory::DoryCommitmentScheme;
-use jolt_core::transcripts::KeccakTranscript;
 use onnx_tracer::model;
-use zkml_jolt_core::jolt::JoltSNARK;
 
 use crate::config::Config;
 use crate::input::{load_onehot_vocab, load_tfidf_vocab, load_token_index_vocab};
 use crate::models::{InputType, ModelRegistry};
 use crate::receipt::ReceiptStore;
-use crate::state::{AppState, PreprocessingCache, VocabData};
+use crate::state::{AppState, PreprocessingCache, Snark, VocabData};
 
-#[allow(clippy::upper_case_acronyms)]
-type PCS = DoryCommitmentScheme;
-type Snark = JoltSNARK<Fr, PCS, KeccakTranscript>;
+static RE_DUP: LazyLock<regex::Regex> =
+    LazyLock::new(|| regex::Regex::new(r"(.)\1{2,}").unwrap());
+static RE_WS: LazyLock<regex::Regex> =
+    LazyLock::new(|| regex::Regex::new(r"\s+").unwrap());
 
 /// Solve Moltbook verification challenges (lobster-themed arithmetic).
 /// Strips junk chars, extracts number words, determines operation, computes answer.
@@ -48,11 +43,9 @@ fn solve_moltbook_challenge(challenge: &str) -> Option<String> {
         .map(|c| if c.is_alphabetic() || c.is_whitespace() { c.to_ascii_lowercase() } else { ' ' })
         .collect();
     // Collapse repeated letters (e.g., "looobster" -> "lobster", "thhree" -> "three")
-    let re_dup = Regex::new(r"(.)\1{2,}").ok()?;
-    let clean = re_dup.replace_all(&clean, "$1$1");
+    let clean = RE_DUP.replace_all(&clean, "$1$1");
     // Collapse whitespace
-    let re_ws = Regex::new(r"\s+").ok()?;
-    let clean = re_ws.replace_all(&clean, " ");
+    let clean = RE_WS.replace_all(&clean, " ");
 
     let word_to_num: Vec<(&str, f64)> = vec![
         ("zero", 0.0), ("one", 1.0), ("two", 2.0), ("three", 3.0), ("four", 4.0),
@@ -143,7 +136,11 @@ fn solve_moltbook_challenge(challenge: &str) -> Option<String> {
         a + b // default: addition (total, combined, adds, etc.)
     };
 
-    Some(format!("{:.2}", result))
+    if result.fract() == 0.0 {
+        Some(format!("{}", result as i64))
+    } else {
+        Some(format!("{:.2}", result))
+    }
 }
 
 #[tokio::main]
@@ -243,19 +240,12 @@ async fn main() -> anyhow::Result<()> {
     tokio::spawn(async move {
         info!("[clawproof] Starting background model preprocessing...");
         let model_list: Vec<_> = {
-            let reg = bg_state.registry.read().unwrap();
+            let reg = bg_state.registry.read().expect("model registry lock poisoned");
             reg.list().into_iter().cloned().collect()
         };
         for model_desc in model_list {
             let model_id = model_desc.id.clone();
-            let model_path = {
-                let default = bg_config.models_dir.join(&model_id).join("network.onnx");
-                if default.exists() {
-                    default
-                } else {
-                    bg_config.uploaded_models_dir.join(&model_id).join("network.onnx")
-                }
-            };
+            let model_path = bg_config.resolve_model_path(&model_id);
 
             if !model_path.exists() {
                 tracing::warn!("[clawproof] ONNX file not found for model {}, skipping", model_id);
@@ -304,7 +294,8 @@ async fn main() -> anyhow::Result<()> {
     // Periodic cache eviction (SQLite is persistent; DashMap is hot cache)
     let receipts_clone = state.receipts.clone();
     tokio::spawn(async move {
-        let mut interval = tokio::time::interval(Duration::from_secs(600));
+        let start = tokio::time::Instant::now() + Duration::from_secs(600);
+        let mut interval = tokio::time::interval_at(start, Duration::from_secs(600));
         loop {
             interval.tick().await;
             receipts_clone.cleanup_cache(Duration::from_secs(3600));
@@ -319,14 +310,29 @@ async fn main() -> anyhow::Result<()> {
         tokio::spawn(async move {
             let client = reqwest::Client::new();
             let base = "https://www.moltbook.com/api/v1";
-            let mut interval = tokio::time::interval(Duration::from_secs(1800));
+            let start = tokio::time::Instant::now() + Duration::from_secs(1800);
+            let mut interval = tokio::time::interval_at(start, Duration::from_secs(1800));
             let mut cycle: u64 = 0;
+            let mut consecutive_failures: u32 = 0;
 
             // Submolts to rotate through
             let submolts = ["tools", "ai", "programming", "crypto", "openclaw"];
 
             loop {
                 interval.tick().await;
+
+                // Exponential backoff after 3+ consecutive failures
+                if consecutive_failures >= 3 {
+                    let backoff_multiplier = 1u64 << (consecutive_failures - 3).min(3); // cap at 8x
+                    let extra_sleep = Duration::from_secs(1800 * backoff_multiplier);
+                    tracing::warn!(
+                        "[moltbook] {} consecutive failures, backing off for {}s",
+                        consecutive_failures,
+                        extra_sleep.as_secs()
+                    );
+                    tokio::time::sleep(extra_sleep).await;
+                }
+
                 let auth = format!("Bearer {}", api_key);
 
                 // --- Engagement: home, notifications, feed ---
@@ -466,7 +472,7 @@ async fn main() -> anyhow::Result<()> {
                             format!(
                                 "Generated a real JOLT-Atlas SNARK proof of neural network inference. The proof system uses Dory polynomial commitment on BN254.\n\n\
                                 **Cryptographic receipt contains:**\n\
-                                - `model_hash` — SHA-256 commitment to the exact ONNX weights\n\
+                                - `model_hash` — Keccak256 commitment to the exact ONNX weights\n\
                                 - `input_hash` — Keccak256 of the input tensor\n\
                                 - `output_hash` — Keccak256 of the inference output\n\
                                 - `proof_hash` — Keccak256 of the serialized SNARK proof\n\n\
@@ -553,9 +559,13 @@ async fn main() -> anyhow::Result<()> {
                     }
                     Err(e) => {
                         tracing::warn!("[moltbook] Post failed (cycle {}): {:?}", cycle, e);
+                        consecutive_failures += 1;
+                        cycle += 1;
+                        continue;
                     }
                 }
 
+                consecutive_failures = 0;
                 cycle += 1;
             }
         });

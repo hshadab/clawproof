@@ -2,6 +2,7 @@ use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Json;
 use serde::Serialize;
+use sha3::{Digest, Keccak256};
 use tracing::info;
 
 use crate::state::AppState;
@@ -32,7 +33,10 @@ pub async fn update_playground(
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
 
-    if auth != format!("Bearer {}", secret) {
+    let expected = format!("Bearer {}", secret);
+    let hash_provided = Keccak256::digest(auth.as_bytes());
+    let hash_expected = Keccak256::digest(expected.as_bytes());
+    if hash_provided != hash_expected {
         return Err(StatusCode::UNAUTHORIZED);
     }
 

@@ -5,11 +5,13 @@ use crate::receipt::ReceiptStore;
 
 use ark_bn254::Fr;
 use jolt_core::poly::commitment::dory::DoryCommitmentScheme;
+use jolt_core::transcripts::KeccakTranscript;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-use zkml_jolt_core::jolt::{JoltProverPreprocessing, JoltVerifierPreprocessing};
+use zkml_jolt_core::jolt::{JoltProverPreprocessing, JoltSNARK, JoltVerifierPreprocessing};
 
-type PCS = DoryCommitmentScheme;
+pub type PCS = DoryCommitmentScheme;
+pub type Snark = JoltSNARK<Fr, PCS, KeccakTranscript>;
 
 pub struct PreprocessingCache {
     pub prover: JoltProverPreprocessing<Fr, PCS>,
