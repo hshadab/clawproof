@@ -904,6 +904,125 @@
         }
       }
     },
+    "/agent-lookup": {
+      "post": {
+        "operationId": "agentLookup",
+        "summary": "Look up a Moltbook agent for trust scoring",
+        "description": "Fetches a Moltbook agent's public profile and maps their metadata (karma, account age, follower ratio, post frequency, verification status) into the bucketed integer fields expected by the agent_trust model. Returns both the bucketed fields (ready to pass to POST /prove with model_id 'agent_trust') and the raw profile data. Accepts a Moltbook profile URL (e.g. https://www.moltbook.com/u/agent-name) or just the agent's username. Requires MOLTBOOK_API_KEY to be configured on the server.",
+        "tags": ["Models"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentLookupRequest"
+              },
+              "examples": {
+                "by_url": {
+                  "summary": "Look up by Moltbook URL",
+                  "value": {
+                    "agent": "https://www.moltbook.com/u/cybercentry",
+                    "interaction": "comment"
+                  }
+                },
+                "by_name": {
+                  "summary": "Look up by agent name",
+                  "value": {
+                    "agent": "cybercentry",
+                    "interaction": "trade"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Agent profile fetched and fields mapped. Use the 'fields' object directly as input.fields in a POST /prove request with model_id 'agent_trust'.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentLookupResponse"
+                },
+                "example": {
+                  "agent_name": "cybercentry",
+                  "fields": {
+                    "karma": 7,
+                    "account_age": 5,
+                    "follower_ratio": 3,
+                    "post_frequency": 2,
+                    "verification": 2,
+                    "content_similarity": 0,
+                    "interaction_type": 1
+                  },
+                  "raw": {
+                    "karma": 420,
+                    "follower_count": 42,
+                    "following_count": 10,
+                    "posts": 156,
+                    "comments": 892,
+                    "days_old": 45.3,
+                    "x_verified": true
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid agent name or URL.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Invalid agent name or URL. Use a Moltbook URL like https://www.moltbook.com/u/agent-name or just the agent name."
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent not found on Moltbook.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Agent 'nonexistent' not found on Moltbook (status 404)"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Failed to reach or parse the Moltbook API.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Failed to reach Moltbook API"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Moltbook API key not configured on the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Moltbook API key not configured"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/openapi.json": {
       "get": {
         "operationId": "getOpenApiSpec",
@@ -1470,6 +1589,63 @@
             "enum": ["preprocessing"],
             "description": "Always 'preprocessing' on success. The SNARK setup runs in the background. Check GET /health to see when it finishes.",
             "example": "preprocessing"
+          }
+        }
+      },
+      "AgentLookupRequest": {
+        "type": "object",
+        "description": "Request to look up a Moltbook agent's profile for trust scoring.",
+        "required": ["agent"],
+        "properties": {
+          "agent": {
+            "type": "string",
+            "description": "Moltbook agent URL (e.g. 'https://www.moltbook.com/u/cybercentry') or just the agent username (e.g. 'cybercentry').",
+            "example": "https://www.moltbook.com/u/cybercentry"
+          },
+          "interaction": {
+            "type": "string",
+            "enum": ["post", "comment", "dm", "trade"],
+            "default": "comment",
+            "description": "The type of interaction to score. Defaults to 'comment'.",
+            "example": "comment"
+          }
+        }
+      },
+      "AgentLookupResponse": {
+        "type": "object",
+        "description": "Moltbook agent profile mapped to agent_trust model fields. Pass the 'fields' object directly to POST /prove with model_id 'agent_trust'.",
+        "required": ["agent_name", "fields", "raw"],
+        "properties": {
+          "agent_name": {
+            "type": "string",
+            "description": "The resolved Moltbook username.",
+            "example": "cybercentry"
+          },
+          "fields": {
+            "type": "object",
+            "description": "Bucketed field values ready for the agent_trust model. Pass this as input.fields in POST /prove.",
+            "properties": {
+              "karma": { "type": "integer", "description": "Bucketed karma (0-10)." },
+              "account_age": { "type": "integer", "description": "Bucketed account age in days (0-7)." },
+              "follower_ratio": { "type": "integer", "description": "Bucketed follower/following ratio (0-5)." },
+              "post_frequency": { "type": "integer", "description": "Bucketed posts per day (0-5)." },
+              "verification": { "type": "integer", "description": "Verification level: 0=none, 2=X-verified." },
+              "content_similarity": { "type": "integer", "description": "Similarity to known spam (always 0 — not derivable from profile)." },
+              "interaction_type": { "type": "integer", "description": "Interaction type: 0=post, 1=comment, 2=dm, 3=trade." }
+            }
+          },
+          "raw": {
+            "type": "object",
+            "description": "Raw profile data from Moltbook before bucketing.",
+            "properties": {
+              "karma": { "type": "integer", "description": "Raw karma score." },
+              "follower_count": { "type": "integer", "description": "Number of followers." },
+              "following_count": { "type": "integer", "description": "Number of agents followed." },
+              "posts": { "type": "integer", "description": "Total posts." },
+              "comments": { "type": "integer", "description": "Total comments." },
+              "days_old": { "type": "number", "description": "Account age in fractional days." },
+              "x_verified": { "type": "boolean", "description": "Whether the owner's X account is verified." }
+            }
           }
         }
       },

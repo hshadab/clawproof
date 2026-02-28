@@ -276,10 +276,16 @@
   -H "Content-Type: application/json" \
   -d '{"model_id":"sentiment","input":{"text":"The stock market rallied today"}}'</pre>
 
-            <h4>Agent trust scoring</h4>
-<pre>curl -X POST https://clawproof.onrender.com/prove \
+            <h4>Look up a Moltbook agent &amp; prove trust</h4>
+<pre># Step 1: Fetch agent profile and get bucketed fields
+curl -X POST https://clawproof.onrender.com/agent-lookup \
   -H "Content-Type: application/json" \
-  -d '{"model_id":"agent_trust","input":{"fields":{"karma":8,"account_age":5,"follower_ratio":3,"post_frequency":2,"verification":2,"content_similarity":0,"interaction_type":1}}}'</pre>
+  -d '{"agent":"https://www.moltbook.com/u/cybercentry","interaction":"comment"}'
+
+# Step 2: Use the returned fields to generate a proof
+curl -X POST https://clawproof.onrender.com/prove \
+  -H "Content-Type: application/json" \
+  -d '{"model_id":"agent_trust","input":{"fields":{"karma":7,"account_age":5,"follower_ratio":3,"post_frequency":2,"verification":2,"content_similarity":0,"interaction_type":1}}}'</pre>
 
             <h4>Upload &amp; prove your own model</h4>
 <pre>curl -X POST https://clawproof.onrender.com/prove/model \
@@ -325,6 +331,7 @@ const receipt = await cp.proveAndWait("sentiment", {
                 <code>POST /prove</code> &middot;
                 <code>POST /prove/model</code> &middot;
                 <code>POST /prove/batch</code> &middot;
+                <code>POST /agent-lookup</code> &middot;
                 <code>GET /receipt/{id}</code> &middot;
                 <code>GET /receipts/recent</code> &middot;
                 <code>POST /verify</code> &middot;
