@@ -664,12 +664,16 @@ async function lookupAgent() {
 
         // Show raw data summary
         const raw = data.raw;
+        const verifLabel = raw.x_verified ? 'X-verified' : raw.is_claimed ? 'claimed' : 'unclaimed';
+        const spamPct = Math.round(raw.content_spam_score * 100);
         status.innerHTML = '<strong>' + data.agent_name + '</strong>: ' +
             raw.karma + ' karma, ' +
             Math.round(raw.days_old) + 'd old, ' +
-            raw.follower_count + ' followers, ' +
-            (raw.posts + raw.comments) + ' posts+comments' +
-            (raw.x_verified ? ', X-verified' : '');
+            raw.follower_count + ' followers' +
+            (raw.following_count != null ? '/' + raw.following_count + ' following' : '') + ', ' +
+            (raw.posts + raw.comments) + ' posts+comments, ' +
+            verifLabel +
+            ', spam ' + spamPct + '%';
         status.style.color = 'var(--green)';
     } catch(e) {
         status.textContent = e.message;

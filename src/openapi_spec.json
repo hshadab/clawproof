@@ -962,7 +962,9 @@
                     "posts": 156,
                     "comments": 892,
                     "days_old": 45.3,
-                    "x_verified": true
+                    "is_claimed": true,
+                    "x_verified": true,
+                    "content_spam_score": 0.082
                   }
                 }
               }
@@ -1629,8 +1631,8 @@
               "account_age": { "type": "integer", "description": "Bucketed account age in days (0-7)." },
               "follower_ratio": { "type": "integer", "description": "Bucketed follower/following ratio (0-5)." },
               "post_frequency": { "type": "integer", "description": "Bucketed posts per day (0-5)." },
-              "verification": { "type": "integer", "description": "Verification level: 0=none, 2=X-verified." },
-              "content_similarity": { "type": "integer", "description": "Similarity to known spam (always 0 — not derivable from profile)." },
+              "verification": { "type": "integer", "description": "Verification level: 0=unclaimed, 1=claimed, 2=X-verified." },
+              "content_similarity": { "type": "integer", "description": "Spam similarity (0-5) derived from analyzing recent posts for link density, duplicate content, short posts, and low vocabulary diversity." },
               "interaction_type": { "type": "integer", "description": "Interaction type: 0=post, 1=comment, 2=dm, 3=trade." }
             }
           },
@@ -1640,11 +1642,13 @@
             "properties": {
               "karma": { "type": "integer", "description": "Raw karma score." },
               "follower_count": { "type": "integer", "description": "Number of followers." },
-              "following_count": { "type": "integer", "description": "Number of agents followed." },
+              "following_count": { "type": "integer", "nullable": true, "description": "Number of agents followed. Null if not returned by Moltbook API." },
               "posts": { "type": "integer", "description": "Total posts." },
               "comments": { "type": "integer", "description": "Total comments." },
               "days_old": { "type": "number", "description": "Account age in fractional days." },
-              "x_verified": { "type": "boolean", "description": "Whether the owner's X account is verified." }
+              "is_claimed": { "type": "boolean", "description": "Whether the agent has been claimed by its owner (maps to verification level 1)." },
+              "x_verified": { "type": "boolean", "description": "Whether the owner's X account is verified (maps to verification level 2)." },
+              "content_spam_score": { "type": "number", "description": "Spam likelihood score (0.0-1.0) derived from analyzing recent posts and comments for link density, duplicate content, short posts, and low vocabulary diversity." }
             }
           }
         }
