@@ -1,3 +1,4 @@
+pub mod agent_lookup;
 pub mod badge;
 pub mod batch;
 pub mod convert;

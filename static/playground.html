@@ -601,7 +601,19 @@ function renderInputs() {
         const val = defaults.text || '';
         area.innerHTML = '<div class="form-group"><label class="form-label">Input text</label><textarea id="text-input" placeholder="Enter text to classify...">' + val + '</textarea></div>';
     } else if (m.fields) {
-        let html = '<div class="form-group"><label class="form-label">Parameters</label><div class="fields-grid">';
+        let html = '';
+        // Agent trust: add Moltbook URL lookup
+        if (m.id === 'agent_trust') {
+            html += '<div class="form-group" style="margin-bottom:1rem;">' +
+                '<label class="form-label">Moltbook agent</label>' +
+                '<div style="display:flex;gap:0.5rem;">' +
+                '<input type="text" id="agent-url" placeholder="https://www.moltbook.com/u/agent-name or just the name" style="flex:1;">' +
+                '<button onclick="lookupAgent()" id="lookup-btn" style="padding:0.5rem 0.75rem;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:0.8125rem;cursor:pointer;white-space:nowrap;">Look up</button>' +
+                '</div>' +
+                '<div id="lookup-status" style="font-size:0.75rem;margin-top:0.375rem;color:var(--text3);"></div>' +
+                '</div>';
+        }
+        html += '<div class="form-group"><label class="form-label">Parameters</label><div class="fields-grid">';
         for (const f of m.fields) {
             const val = (defaults.fields && defaults.fields[f.name] !== undefined) ? defaults.fields[f.name] : f.min;
             html += '<div class="field-item"><label class="form-label">' + f.name + ' <span class="field-range">' + f.min + '\u2013' + f.max + '</span></label><input type="number" data-field="' + f.name + '" min="' + f.min + '" max="' + f.max + '" value="' + val + '"></div>';
@@ -612,6 +624,51 @@ function renderInputs() {
         const val = defaults.raw ? JSON.stringify(defaults.raw) : '';
         area.innerHTML = '<div class="form-group"><label class="form-label">Raw input vector (JSON array of ' + m.input_dim + ' integers)</label><textarea id="raw-input" placeholder="[0, 1, 2, ...]" rows="3">' + val + '</textarea></div>';
     }
+}
+
+async function lookupAgent() {
+    const input = document.getElementById('agent-url');
+    const btn = document.getElementById('lookup-btn');
+    const status = document.getElementById('lookup-status');
+    const agent = (input?.value || '').trim();
+    if (!agent) { status.textContent = 'Enter an agent name or URL.'; status.style.color = 'var(--red)'; return; }
+
+    btn.disabled = true; btn.textContent = 'Looking up...';
+    status.textContent = ''; status.style.color = 'var(--text3)';
+
+    // Determine interaction type from the current field value
+    const interEl = document.querySelector('[data-field="interaction_type"]');
+    const interMap = {0:'post', 1:'comment', 2:'dm', 3:'trade'};
+    const interaction = interMap[interEl?.value] || 'comment';
+
+    try {
+        const r = await fetch('/agent-lookup', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ agent, interaction })
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'Lookup failed');
+
+        // Fill in the fields
+        for (const [name, val] of Object.entries(data.fields)) {
+            const el = document.querySelector('[data-field="' + name + '"]');
+            if (el) el.value = val;
+        }
+
+        // Show raw data summary
+        const raw = data.raw;
+        status.innerHTML = '<strong>' + data.agent_name + '</strong>: ' +
+            raw.karma + ' karma, ' +
+            Math.round(raw.days_old) + 'd old, ' +
+            raw.follower_count + ' followers, ' +
+            (raw.posts + raw.comments) + ' posts+comments' +
+            (raw.x_verified ? ', X-verified' : '');
+        status.style.color = 'var(--green)';
+    } catch(e) {
+        status.textContent = e.message;
+        status.style.color = 'var(--red)';
+    }
+    btn.disabled = false; btn.textContent = 'Look up';
 }
 
 // --- Prove ---

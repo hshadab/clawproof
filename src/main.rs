@@ -644,6 +644,7 @@ async fn main() -> anyhow::Result<()> {
             post(handlers::prove_model::prove_model).layer(prove_model_rate_limit),
         )
         .route("/convert", post(handlers::convert::convert))
+        .route("/agent-lookup", post(handlers::agent_lookup::agent_lookup))
         .route("/openapi.json", get(handlers::openapi::openapi_spec))
         .route("/admin/static/playground", put(handlers::static_update::update_playground))
         .layer(cors)
