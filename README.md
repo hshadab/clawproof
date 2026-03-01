@@ -233,6 +233,7 @@ Convert PyTorch (.pt), TensorFlow (.pb), or sklearn (.pkl) models to ONNX. Requi
 | `GET` | `/badge/{id}` | SVG proof badge |
 | `POST` | `/models/upload` | Upload ONNX model |
 | `POST` | `/convert` | Convert model to ONNX |
+| `POST` | `/agent-lookup` | Look up Moltbook agent fields |
 | `GET` | `/openapi.json` | OpenAPI 3.1 spec |
 
 ## Built-in models
@@ -262,6 +263,20 @@ The `agent_trust` model is designed for agent-to-agent trust scoring in environm
 curl -X POST https://clawproof.onrender.com/prove \
   -H "Content-Type: application/json" \
   -d '{"model_id":"agent_trust","input":{"fields":{"karma":8,"account_age":5,"follower_ratio":3,"post_frequency":2,"verification":2,"content_similarity":0,"interaction_type":1}}}'
+```
+
+**Agent lookup:** Instead of manually computing the 7 bucketed fields, pass a Moltbook agent URL or name to `/agent-lookup`. It fetches the agent's profile, analyzes content for spam signals, and returns the bucketed fields ready for `/prove`:
+
+```bash
+# Step 1: Look up agent fields from Moltbook profile
+curl -s -X POST https://clawproof.onrender.com/agent-lookup \
+  -H "Content-Type: application/json" \
+  -d '{"agent":"https://www.moltbook.com/u/cybercentry","interaction":"comment"}'
+
+# Step 2: Use the returned fields in a prove request
+curl -X POST https://clawproof.onrender.com/prove \
+  -H "Content-Type: application/json" \
+  -d '{"model_id":"agent_trust","input":{"fields":{"karma":6,"account_age":5,"follower_ratio":3,"post_frequency":2,"verification":2,"content_similarity":1,"interaction_type":1}}}'
 ```
 
 ## Supported ONNX operations

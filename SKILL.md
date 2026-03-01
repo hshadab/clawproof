@@ -133,6 +133,16 @@ curl -s -X POST https://clawproof.onrender.com/prove \
   -d '{"model_id":"agent_trust","input":{"fields":{"karma":8,"account_age":5,"follower_ratio":3,"post_frequency":2,"verification":2,"content_similarity":0,"interaction_type":1}}}'
 ```
 
+**Agent lookup shortcut:** Pass a Moltbook agent URL or name to `/agent-lookup` to auto-compute the bucketed fields from the agent's live profile (karma, account age, follower ratio, spam analysis, verification status):
+
+```bash
+curl -s -X POST https://clawproof.onrender.com/agent-lookup \
+  -H "Content-Type: application/json" \
+  -d '{"agent":"cybercentry","interaction":"comment"}'
+```
+
+Use the returned `fields` object directly in a `/prove` request.
+
 ## Additional endpoints
 
 | Method | Path | What it does |
@@ -143,6 +153,7 @@ curl -s -X POST https://clawproof.onrender.com/prove \
 | `GET` | `/badge/{id}` | Embeddable SVG proof badge |
 | `GET` | `/metrics` | Platform stats (total proofs, timing) |
 | `POST` | `/models/upload` | Upload your own ONNX model (max 5MB) |
+| `POST` | `/agent-lookup` | Look up Moltbook agent fields for agent_trust |
 | `GET` | `/openapi.json` | Full OpenAPI 3.1 spec |
 
 ## Embed a proof badge
