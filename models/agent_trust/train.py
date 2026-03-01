@@ -6,7 +6,7 @@ TRUSTED / SUSPICIOUS / REJECT based on 7 structured fields from
 Moltbook-style agent metadata.
 
 Architecture matches ClawProof's existing models:
-  input(44) → Gemm(44→24) → ReLU → Gemm(24→3) → output
+  input(44) → Gemm(44→32) → ReLU → Gemm(32→3) → output
 
 Usage:
     python train.py          # trains + exports network.onnx, vocab.json, model.toml
@@ -84,12 +84,12 @@ def label_sample(karma, account_age, follower_ratio, post_frequency,
     elif interaction_type == 2:  # DM
         trust_score -= 2
 
-    # Add noise for realistic boundary cases
-    trust_score += np.random.normal(0, 3)
+    # Add noise for realistic boundary cases (low noise → cleaner labels)
+    trust_score += np.random.normal(0, 1.5)
 
-    if trust_score >= 20:
+    if trust_score >= 25:
         return 0  # TRUSTED
-    elif trust_score <= 5:
+    elif trust_score <= 0:
         return 2  # REJECT
     else:
         return 1  # SUSPICIOUS
@@ -98,7 +98,7 @@ def label_sample(karma, account_age, follower_ratio, post_frequency,
 # ---------------------------------------------------------------------------
 # Data generation
 # ---------------------------------------------------------------------------
-def generate_dataset(n_samples=20000):
+def generate_dataset(n_samples=30000):
     """Generate synthetic training data with one-hot encoding."""
     X = np.zeros((n_samples, INPUT_DIM), dtype=np.float32)
     y = np.zeros(n_samples, dtype=np.int64)
@@ -130,7 +130,7 @@ def generate_dataset(n_samples=20000):
 # Model
 # ---------------------------------------------------------------------------
 class AgentTrustClassifier(nn.Module):
-    def __init__(self, input_dim=INPUT_DIM, hidden_dim=24, num_classes=NUM_CLASSES):
+    def __init__(self, input_dim=INPUT_DIM, hidden_dim=32, num_classes=NUM_CLASSES):
         super().__init__()
         self.fc1 = nn.Linear(input_dim, hidden_dim)
         self.relu1 = nn.ReLU()
@@ -150,8 +150,8 @@ def train_model():
     np.random.seed(42)
     torch.manual_seed(42)
 
-    X_train, y_train = generate_dataset(20000)
-    X_val, y_val = generate_dataset(3000)
+    X_train, y_train = generate_dataset(30000)
+    X_val, y_val = generate_dataset(5000)
 
     X_train_t = torch.from_numpy(X_train)
     y_train_t = torch.from_numpy(y_train)
@@ -159,8 +159,8 @@ def train_model():
     y_val_t = torch.from_numpy(y_val)
 
     model = AgentTrustClassifier()
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.005)
+    criterion = nn.CrossEntropyLoss(label_smoothing=0.02)
+    optimizer = optim.Adam(model.parameters(), lr=0.002)
 
     best_val_acc = 0.0
     best_state = None
@@ -192,19 +192,30 @@ def train_model():
                 best_val_acc = val_acc
                 best_state = {k: v.clone() for k, v in model.state_dict().items()}
 
-        if (epoch + 1) % 25 == 0:
+        if (epoch + 1) % 50 == 0:
             print(f"  epoch {epoch+1:3d}  loss={total_loss:.3f}  val_acc={val_acc:.4f}")
 
     print(f"\nBest validation accuracy: {best_val_acc:.4f}")
     model.load_state_dict(best_state)
 
-    # Print class distribution
+    # Print class distribution and confidence metrics
     with torch.no_grad():
-        pred = model(X_val_t).argmax(dim=1).numpy()
+        val_logits = model(X_val_t)
+        pred = val_logits.argmax(dim=1).numpy()
         for i, label in enumerate(LABELS):
             count = (pred == i).sum()
             true_count = (y_val == i).sum()
             print(f"  {label:12s}  predicted={count:5d}  actual={true_count:5d}")
+
+        # Confidence report (matches Rust confidence formula)
+        logits_np = val_logits.numpy()
+        abs_logits = np.abs(logits_np)
+        totals = abs_logits.sum(axis=1)
+        winner_abs = abs_logits[np.arange(len(pred)), pred]
+        confidences = np.where(totals > 0, winner_abs / totals, 0.0)
+        print(f"\n  Confidence:  mean={confidences.mean():.1%}  "
+              f"median={np.median(confidences):.1%}  "
+              f"min={confidences.min():.1%}  max={confidences.max():.1%}")
 
     return model
 
@@ -376,7 +387,9 @@ def sanity_check(onnx_path):
 
             result = sess.run(None, {"input": vec})[0][0]
             pred = int(np.argmax(result))
-            print(f"  {tc} → {LABELS[pred]} (logits: {result})")
+            total = sum(abs(float(x)) for x in result)
+            conf = abs(float(result[pred])) / total if total > 0 else 0
+            print(f"  {LABELS[pred]:12s} conf={conf:.1%}  logits=[{result[0]:+.2f}, {result[1]:+.2f}, {result[2]:+.2f}]")
     except ImportError:
         print("  (onnxruntime not available — skipping inference test)")
 
