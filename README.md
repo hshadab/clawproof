@@ -361,7 +361,7 @@ For the full operator source, see [atlas-onnx-tracer/src/ops](https://github.com
 POST /prove → Inference → Receipt (status: "proving") → [webhook callback]
                                ↓
                          Background task:
-                         SNARK proof generation → Verification
+                         zkML proof generation → Verification
                                ↓
                          Receipt updated (status: "verified")
                          Persisted to SQLite

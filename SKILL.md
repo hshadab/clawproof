@@ -83,7 +83,7 @@ When `status` is `"verified"`, the receipt contains:
 - `model_hash` — Keccak256 of the ONNX model
 - `input_hash` — Keccak256 of the input
 - `output_hash` — Keccak256 of the output
-- `proof_hash` — Keccak256 of the SNARK proof
+- `proof_hash` — Keccak256 of the zkML proof
 - `prove_time_ms` / `verify_time_ms` — Timing
 
 ### 4. Verify a receipt
@@ -115,7 +115,7 @@ Classifies transactions as AUTHORIZED or DENIED.
 
 ### agent_trust
 
-Classifies agent interactions as TRUSTED, SUSPICIOUS, or REJECT. Designed for agent-to-agent trust scoring — prove your trust assessment of another agent with a SNARK so any third party can verify without re-running the model.
+Classifies agent interactions as TRUSTED, SUSPICIOUS, or REJECT. Designed for agent-to-agent trust scoring — prove your trust assessment of another agent with a zkML proof so any third party can verify without re-running the model.
 
 | Field | Description | Range |
 |-------|-------------|-------|
