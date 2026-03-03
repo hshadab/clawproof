@@ -91,6 +91,19 @@
         .demo-link { display: inline-block; margin-top: 0.5rem; font-family: var(--mono); font-size: 0.6875rem; color: var(--link); text-decoration: none; }
         .demo-link:hover { text-decoration: underline; }
 
+        /* Use case scenario cards */
+        .use-cases { margin-bottom: 1.5rem; }
+        .use-cases-header { font-size: 0.8125rem; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.625rem; }
+        .use-cases-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.625rem; }
+        @media (max-width: 600px) { .use-cases-grid { grid-template-columns: 1fr; } }
+        .use-case { background: var(--bg2); border: 1px solid var(--border-light); border-radius: 8px; padding: 0.875rem; display: flex; flex-direction: column; }
+        .use-case-icon { font-size: 1.25rem; margin-bottom: 0.375rem; }
+        .use-case-title { font-size: 0.8125rem; font-weight: 600; margin-bottom: 0.25rem; }
+        .use-case-desc { color: var(--text2); font-size: 0.6875rem; line-height: 1.5; flex: 1; }
+        .use-case-model { font-family: var(--mono); font-size: 0.625rem; color: var(--text3); margin-top: 0.5rem; }
+        .use-case-try { display: inline-block; margin-top: 0.5rem; font-size: 0.6875rem; font-weight: 500; color: var(--accent); background: none; border: none; cursor: pointer; padding: 0; text-align: left; }
+        .use-case-try:hover { color: var(--accent-h); text-decoration: underline; }
+
         /* Model cards */
         .models-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
         @media (max-width: 600px) { .models-grid { grid-template-columns: 1fr; } }
@@ -235,6 +248,31 @@
                     <div class="flow-desc">Share your receipt. Anyone can verify the proof in milliseconds without seeing your data or re-running the model.</div>
                     <div class="flow-detail">Verification takes ~80ms</div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Use cases -->
+    <div class="use-cases">
+        <div class="use-cases-header">What can you prove?</div>
+        <div class="use-cases-grid">
+            <div class="use-case">
+                <div class="use-case-title">Transaction approval</div>
+                <div class="use-case-desc">An AI agent approves a purchase. The merchant needs proof the model actually classified it as authorized &mdash; not that someone manually overrode the decision.</div>
+                <div class="use-case-model">authorization model</div>
+                <button class="use-case-try" onclick="tryUseCase('authorization')">Try it &rarr;</button>
+            </div>
+            <div class="use-case">
+                <div class="use-case-title">Agent trust scoring</div>
+                <div class="use-case-desc">Before transacting with an unknown agent, you check their trust score. The proof lets any third party verify the assessment is real, not fabricated.</div>
+                <div class="use-case-model">agent_trust model</div>
+                <button class="use-case-try" onclick="tryUseCase('agent_trust')">Try it &rarr;</button>
+            </div>
+            <div class="use-case">
+                <div class="use-case-title">News classification audit</div>
+                <div class="use-case-desc">A trading bot classifies a headline as BUSINESS and executes a trade. Auditors need proof the classifier actually ran &mdash; and what it returned.</div>
+                <div class="use-case-model">sentiment model</div>
+                <button class="use-case-try" onclick="tryUseCase('sentiment')">Try it &rarr;</button>
             </div>
         </div>
     </div>
@@ -759,6 +797,18 @@ async function lookupAgent() {
         status.style.color = 'var(--red)';
     }
     btn.disabled = false; btn.textContent = 'Look up';
+}
+
+// --- Use case "Try it" ---
+function tryUseCase(modelId) {
+    // Switch to Prove tab
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelector('#tab-prove').classList.add('active');
+    document.querySelectorAll('.tab').forEach(t => { if (t.textContent === 'Prove') t.classList.add('active'); });
+    // Select the model and load sample data
+    selectModel(modelId);
+    loadSample();
 }
 
 // --- Prove ---
