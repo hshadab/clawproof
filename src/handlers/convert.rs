@@ -26,7 +26,6 @@ pub async fn convert(
     };
 
     // Forward the multipart form to the converter service
-    let client = reqwest::Client::new();
     let url = format!("{}/convert", converter_url);
 
     // Read all fields and forward them
@@ -51,7 +50,7 @@ pub async fn convert(
         form = form.part(name, part);
     }
 
-    match client.post(&url).multipart(form).send().await {
+    match state.http_client.post(&url).multipart(form).send().await {
         Ok(resp) => {
             let status = StatusCode::from_u16(resp.status().as_u16()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
             let body = resp.bytes().await.unwrap_or_default();

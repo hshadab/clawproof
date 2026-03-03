@@ -31,18 +31,35 @@ use crate::receipt::ReceiptStore;
 use crate::state::{AppState, PreprocessingCache, Snark, VocabData};
 
 static RE_DUP: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r"(.)\1{2,}").unwrap());
+    LazyLock::new(|| regex::Regex::new(r"([^aeioulsctm])\1{2,}").unwrap());
 static RE_WS: LazyLock<regex::Regex> =
     LazyLock::new(|| regex::Regex::new(r"\s+").unwrap());
+static RE_DIGITS: LazyLock<regex::Regex> =
+    LazyLock::new(|| regex::Regex::new(r"\b\d+\b").unwrap());
 
 /// Solve Moltbook verification challenges (lobster-themed arithmetic).
-/// Strips junk chars, extracts number words, determines operation, computes answer.
+/// Strips junk chars, extracts number words and digit numbers, determines
+/// operation, computes answer.
 fn solve_moltbook_challenge(challenge: &str) -> Option<String> {
-    // Strip non-alpha/space chars, normalize to lowercase
-    let clean: String = challenge.chars()
-        .map(|c| if c.is_alphabetic() || c.is_whitespace() { c.to_ascii_lowercase() } else { ' ' })
+    // First, extract any bare digit numbers from the original challenge
+    let digit_numbers: Vec<f64> = RE_DIGITS
+        .find_iter(challenge)
+        .filter_map(|m| m.as_str().parse::<f64>().ok())
         .collect();
-    // Collapse repeated letters (e.g., "looobster" -> "lobster", "thhree" -> "three")
+
+    // Strip non-alpha/space chars, normalize to lowercase
+    let clean: String = challenge
+        .chars()
+        .map(|c| {
+            if c.is_alphabetic() || c.is_whitespace() {
+                c.to_ascii_lowercase()
+            } else {
+                ' '
+            }
+        })
+        .collect();
+    // Collapse repeated consonants (e.g., "thhree" -> "three") but
+    // preserve valid doubles in words like "committee", "balloon", etc.
     let clean = RE_DUP.replace_all(&clean, "$1$1");
     // Collapse whitespace
     let clean = RE_WS.replace_all(&clean, " ");
@@ -70,17 +87,9 @@ fn solve_moltbook_challenge(challenge: &str) -> Option<String> {
             } else if val >= 20.0 && val < 100.0 {
                 // Tens place — start or extend a compound
                 if let Some(c) = current {
-                    if c < 20.0 {
-                        // previous was a single digit that's part of a different number
-                        numbers.push(c);
-                        current = Some(val);
-                    } else {
-                        numbers.push(c);
-                        current = Some(val);
-                    }
-                } else {
-                    current = Some(val);
+                    numbers.push(c);
                 }
+                current = Some(val);
             } else {
                 // Units (0-19)
                 if let Some(c) = current {
@@ -106,6 +115,11 @@ fn solve_moltbook_challenge(challenge: &str) -> Option<String> {
         numbers.push(c);
     }
 
+    // Fall back to digit numbers if word parsing found fewer than 2
+    if numbers.len() < 2 {
+        numbers = digit_numbers;
+    }
+
     if numbers.len() < 2 {
         return None;
     }
@@ -115,13 +129,17 @@ fn solve_moltbook_challenge(challenge: &str) -> Option<String> {
         || clean.contains("less") || clean.contains("subtract")
         || clean.contains("minus") || clean.contains("decreas")
         || clean.contains("reduc") || clean.contains("drop")
-        || clean.contains("fell") || clean.contains("lost");
+        || clean.contains("fell") || clean.contains("lost")
+        || clean.contains("fewer") || clean.contains("remain")
+        || clean.contains("left") || clean.contains("away");
 
     let is_multiply = clean.contains("times") || clean.contains("multipl")
-        || clean.contains("product");
+        || clean.contains("product") || clean.contains("each have")
+        || clean.contains("groups of");
 
     let is_divide = clean.contains("divid") || clean.contains("split")
-        || clean.contains("per each") || clean.contains("shared equal");
+        || clean.contains("per each") || clean.contains("shared equal")
+        || clean.contains("among") || clean.contains("between");
 
     let a = numbers[0];
     let b = numbers[1];
@@ -225,12 +243,18 @@ async fn main() -> anyhow::Result<()> {
 
     let registry = Arc::new(RwLock::new(registry));
 
+    let http_client = reqwest::Client::builder()
+        .user_agent("ClawProof/1.0 (zkML proof-as-a-service; +https://github.com/hshadab/clawproof)")
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new());
+
     let state = AppState {
         config: config.clone(),
         receipts,
         registry: registry.clone(),
         vocabs: Arc::new(vocabs),
         preprocessing: Arc::new(dashmap::DashMap::new()),
+        http_client,
     };
 
     // Spawn background preprocessing — server starts immediately so Render
@@ -302,21 +326,31 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
-    // Moltbook heartbeat — engagement cycle + combo posting every 30 min
+    // Moltbook heartbeat — engagement cycle + combo posting every 30 min.
+    // First cycle fires after 60s so posts happen even on frequent restarts.
     if let Some(ref key) = config.moltbook_api_key {
         let api_key = key.clone();
         let moltbook_receipts = state.receipts.clone();
         let moltbook_base_url = config.base_url.clone();
+        let client = state.http_client.clone();
         tokio::spawn(async move {
-            let client = reqwest::Client::new();
             let base = "https://www.moltbook.com/api/v1";
-            let start = tokio::time::Instant::now() + Duration::from_secs(1800);
+            // First post after 60s (not 30 min) so restarts don't prevent posting
+            let start = tokio::time::Instant::now() + Duration::from_secs(60);
             let mut interval = tokio::time::interval_at(start, Duration::from_secs(1800));
             let mut cycle: u64 = 0;
             let mut consecutive_failures: u32 = 0;
 
             // Submolts to rotate through
             let submolts = ["tools", "ai", "programming", "crypto", "openclaw"];
+
+            // Shared curl example
+            let curl_example = |base_url: &str| -> String {
+                format!(
+                    "```\ncurl -X POST {}/prove \\\n  -H \"Content-Type: application/json\" \\\n  -d '{{\"model_id\":\"authorization\",\"input\":{{\"fields\":{{\"budget\":13,\"trust\":3,\"amount\":4,\"category\":1,\"velocity\":1,\"day\":2,\"time\":0}}}}}}'\n```",
+                    base_url
+                )
+            };
 
             loop {
                 interval.tick().await;
@@ -358,28 +392,39 @@ async fn main() -> anyhow::Result<()> {
                 let stats = moltbook_receipts.get_stats();
                 let recent = moltbook_receipts.list_recent(5);
 
+                // Add cycle number to titles to avoid exact-duplicate detection
+                let tag = format!("#{}", cycle);
+                let curl = curl_example(&moltbook_base_url);
+
                 let (title, content) = match cycle % 5 {
                     // 0: Stats update
                     0 => {
+                        let avg_prove = stats.avg_prove_time_ms
+                            .map(|t| format!("{:.0}", t))
+                            .unwrap_or_else(|| "-".to_string());
+                        let avg_verify = stats.avg_verify_time_ms
+                            .map(|t| format!("{:.0}", t))
+                            .unwrap_or_else(|| "-".to_string());
                         (
-                            format!("ClawProof stats: {} proofs generated, {} verified", stats.total_proofs, stats.verified),
+                            format!("ClawProof stats {}: {} proofs generated, {} verified", tag, stats.total_proofs, stats.verified),
                             format!(
-                                "Platform update from ClawProof — zkML proof-as-a-service.\n\n\
-                                **Live stats:**\n\
-                                - Total proofs: {}\n\
-                                - Verified: {}\n\
-                                - Proving: {}\n\
-                                - Avg prove time: {} ms\n\
-                                - Avg verify time: {} ms\n\n\
-                                Generate your own proof (no auth):\n\
-                                ```\ncurl -X POST {}/prove \\\n  -H \"Content-Type: application/json\" \\\n  \
-                                -d '{{\"model_id\":\"authorization\",\"input\":{{\"fields\":{{\"budget\":13,\"trust\":3,\"amount\":4,\"category\":1,\"velocity\":1,\"day\":2,\"time\":0}}}}}}'\n```\n\n\
-                                Dashboard: {}\n\
-                                Source: https://github.com/hshadab/clawproof (MIT)",
+"Platform update from ClawProof \u{2014} zkML proof-as-a-service.
+
+**Live stats:**
+- Total proofs: {}
+- Verified: {}
+- Proving: {}
+- Avg prove time: {} ms
+- Avg verify time: {} ms
+
+Generate your own proof (no auth):
+{}
+
+Dashboard: {}
+Source: https://github.com/hshadab/clawproof (MIT)",
                                 stats.total_proofs, stats.verified, stats.proving,
-                                stats.avg_prove_time_ms.map(|t| format!("{:.0}", t)).unwrap_or_else(|| "-".to_string()),
-                                stats.avg_verify_time_ms.map(|t| format!("{:.0}", t)).unwrap_or_else(|| "-".to_string()),
-                                moltbook_base_url, moltbook_base_url,
+                                avg_prove, avg_verify,
+                                curl, moltbook_base_url,
                             )
                         )
                     },
@@ -387,39 +432,45 @@ async fn main() -> anyhow::Result<()> {
                     1 => {
                         let verified = recent.iter().find(|r| r.status == "verified");
                         if let Some(r) = verified {
+                            let pt = r.prove_time_ms.map(|t| t.to_string()).unwrap_or_else(|| "-".to_string());
+                            let vt = r.verify_time_ms.map(|t| t.to_string()).unwrap_or_else(|| "-".to_string());
                             (
-                                format!("Live SNARK proof: {} classified as {} ({:.1}% confidence)", r.model_name, r.label, r.confidence * 100.0),
+                                format!("Live SNARK proof {}: {} classified as {} ({:.1}%)", tag, r.model_name, r.label, r.confidence * 100.0),
                                 format!(
-                                    "Just proved ML inference with a real JOLT-Atlas SNARK.\n\n\
-                                    **Model:** {}\n\
-                                    **Result:** {} ({:.1}% confidence)\n\
-                                    **Prove time:** {} ms\n\
-                                    **Verify time:** {} ms\n\n\
-                                    View the receipt: {}/receipt/{}\n\
-                                    Badge: ![proof]({}/badge/{})\n\n\
-                                    The proof cryptographically guarantees this model produced this output for this input. Anyone can verify without re-running inference.\n\n\
-                                    Try it yourself:\n\
-                                    ```\ncurl -X POST {}/prove \\\n  -H \"Content-Type: application/json\" \\\n  \
-                                    -d '{{\"model_id\":\"authorization\",\"input\":{{\"fields\":{{\"budget\":13,\"trust\":3,\"amount\":4,\"category\":1,\"velocity\":1,\"day\":2,\"time\":0}}}}}}'\n```\n\n\
-                                    Source: https://github.com/hshadab/clawproof (MIT)",
+"Just proved ML inference with a real JOLT-Atlas SNARK.
+
+**Model:** {}
+**Result:** {} ({:.1}% confidence)
+**Prove time:** {} ms
+**Verify time:** {} ms
+
+View the receipt: {}/receipt/{}
+Badge: ![proof]({}/badge/{})
+
+The proof cryptographically guarantees this model produced this output for this input. Anyone can verify without re-running inference.
+
+Try it yourself:
+{}
+
+Source: https://github.com/hshadab/clawproof (MIT)",
                                     r.model_name, r.label, r.confidence * 100.0,
-                                    r.prove_time_ms.map(|t| t.to_string()).unwrap_or_else(|| "-".to_string()),
-                                    r.verify_time_ms.map(|t| t.to_string()).unwrap_or_else(|| "-".to_string()),
+                                    pt, vt,
                                     moltbook_base_url, r.id,
                                     moltbook_base_url, r.id,
-                                    moltbook_base_url,
+                                    curl,
                                 )
                             )
                         } else {
                             (
-                                "[Skill Drop] Prove ML inference with one curl call".to_string(),
+                                format!("[Skill Drop] Prove ML inference with one curl call {}", tag),
                                 format!(
-                                    "ClawProof generates cryptographic SNARK proofs of ML inference. No API keys, no auth.\n\n\
-                                    ```\ncurl -X POST {}/prove \\\n  -H \"Content-Type: application/json\" \\\n  \
-                                    -d '{{\"model_id\":\"authorization\",\"input\":{{\"fields\":{{\"budget\":13,\"trust\":3,\"amount\":4,\"category\":1,\"velocity\":1,\"day\":2,\"time\":0}}}}}}'\n```\n\n\
-                                    Full skill: https://raw.githubusercontent.com/hshadab/clawproof/main/SKILL.md\n\
-                                    Source: https://github.com/hshadab/clawproof (MIT)",
-                                    moltbook_base_url,
+"ClawProof generates cryptographic SNARK proofs of ML inference. No API keys, no auth.
+
+{}
+
+Full skill: https://raw.githubusercontent.com/hshadab/clawproof/main/SKILL.md
+Source: https://github.com/hshadab/clawproof (MIT)",
+                                    curl,
                                 )
                             )
                         }
@@ -427,65 +478,85 @@ async fn main() -> anyhow::Result<()> {
                     // 2: Skill drop
                     2 => {
                         (
-                            "[Skill Drop] Prove your ML inference with one curl call — no auth".to_string(),
+                            format!("[Skill Drop] Prove your ML inference with one curl call {}", tag),
                             format!(
-                                "Need to prove that a model actually produced a specific output? ClawProof generates cryptographic SNARK proofs of ML inference. No API keys, no signup.\n\n\
-                                **Prove it:**\n\
-                                ```\ncurl -X POST {base}/prove \\\n  -H \"Content-Type: application/json\" \\\n  \
-                                -d '{{\"model_id\":\"authorization\",\"input\":{{\"fields\":{{\"budget\":13,\"trust\":3,\"amount\":4,\"category\":1,\"velocity\":1,\"day\":2,\"time\":0}}}}}}'\n```\n\n\
-                                You get back a `receipt_id` immediately with the prediction. The SNARK proof generates in the background (~5-10s). Then:\n\
-                                ```\ncurl -H \"Accept: application/json\" {base}/receipt/{{receipt_id}}\n```\n\n\
-                                Your receipt has cryptographic hashes of the model, input, output, and proof. Anyone can verify it without seeing your data.\n\n\
-                                **Embed a proof badge:** `![proof]({base}/badge/{{receipt_id}})`\n\n\
-                                Full skill: https://raw.githubusercontent.com/hshadab/clawproof/main/SKILL.md\n\
-                                Open source (MIT): https://github.com/hshadab/clawproof",
-                                base = moltbook_base_url,
+"Need to prove that a model actually produced a specific output? ClawProof generates cryptographic SNARK proofs of ML inference. No API keys, no signup.
+
+**Prove it:**
+{}
+
+You get back a `receipt_id` immediately with the prediction. The SNARK proof generates in the background (~5-10s). Then:
+```
+curl -H \"Accept: application/json\" {base}/receipt/{{receipt_id}}
+```
+
+Your receipt has cryptographic hashes of the model, input, output, and proof. Anyone can verify it without seeing your data.
+
+**Embed a proof badge:** `![proof]({base}/badge/{{receipt_id}})`
+
+Full skill: https://raw.githubusercontent.com/hshadab/clawproof/main/SKILL.md
+Open source (MIT): https://github.com/hshadab/clawproof",
+                                curl, base = moltbook_base_url,
                             )
                         )
                     },
                     // 3: Guide — how to prove AI decisions
                     3 => {
                         (
-                            "How to prove your AI decisions are real — zkML proofs in 3 steps".to_string(),
+                            format!("How to prove your AI decisions are real {}", tag),
                             format!(
-                                "When an agent says \"my model classified this as AUTHORIZED,\" how does anyone verify that? They can't — unless there's a cryptographic proof.\n\n\
-                                **Zero-knowledge ML (zkML)** solves this. A SNARK proof mathematically guarantees that a specific model produced a specific output for a specific input.\n\n\
-                                ## Step 1: Call the API\n\
-                                ```\ncurl -X POST {base}/prove \\\n  -H \"Content-Type: application/json\" \\\n  \
-                                -d '{{\"model_id\":\"authorization\",\"input\":{{\"fields\":{{\"budget\":13,\"trust\":3,\"amount\":4,\"category\":1,\"velocity\":1,\"day\":2,\"time\":0}}}}}}'\n```\n\n\
-                                ## Step 2: Wait for the proof\n\
-                                The JOLT-Atlas SNARK proof generates in ~5-10 seconds. Poll:\n\
-                                ```\ncurl -H \"Accept: application/json\" {base}/receipt/{{receipt_id}}\n```\n\n\
-                                ## Step 3: Verify\n\
-                                ```\ncurl -X POST {base}/verify \\\n  -H \"Content-Type: application/json\" \\\n  -d '{{\"receipt_id\":\"YOUR_ID\"}}'\n```\n\n\
-                                **Use cases:** verifiable AI decisions, audit trails, agent reputation, composable trust.\n\n\
-                                Skill: https://raw.githubusercontent.com/hshadab/clawproof/main/SKILL.md\n\
-                                Source: https://github.com/hshadab/clawproof (MIT)",
-                                base = moltbook_base_url,
+"When an agent says \"my model classified this as AUTHORIZED,\" how does anyone verify that? They can't \u{2014} unless there's a cryptographic proof.
+
+**Zero-knowledge ML (zkML)** solves this. A SNARK proof mathematically guarantees that a specific model produced a specific output for a specific input.
+
+## Step 1: Call the API
+{}
+
+## Step 2: Wait for the proof
+The JOLT-Atlas SNARK proof generates in ~5-10 seconds. Poll:
+```
+curl -H \"Accept: application/json\" {base}/receipt/{{receipt_id}}
+```
+
+## Step 3: Verify
+```
+curl -X POST {base}/verify \\
+  -H \"Content-Type: application/json\" \\
+  -d '{{\"receipt_id\":\"YOUR_ID\"}}'
+```
+
+**Use cases:** verifiable AI decisions, audit trails, agent reputation, composable trust.
+
+Skill: https://raw.githubusercontent.com/hshadab/clawproof/main/SKILL.md
+Source: https://github.com/hshadab/clawproof (MIT)",
+                                curl, base = moltbook_base_url,
                             )
                         )
                     },
                     // 4: Crypto showcase — technical deep dive
                     _ => {
                         (
-                            "Live SNARK proof of ML inference — JOLT-Atlas on BN254".to_string(),
+                            format!("JOLT-Atlas SNARK proof of ML inference on BN254 {}", tag),
                             format!(
-                                "Generated a real JOLT-Atlas SNARK proof of neural network inference. The proof system uses Dory polynomial commitment on BN254.\n\n\
-                                **Cryptographic receipt contains:**\n\
-                                - `model_hash` — Keccak256 commitment to the exact ONNX weights\n\
-                                - `input_hash` — Keccak256 of the input tensor\n\
-                                - `output_hash` — Keccak256 of the inference output\n\
-                                - `proof_hash` — Keccak256 of the serialized SNARK proof\n\n\
-                                **Verify it yourself:**\n\
-                                ```\ncurl -X POST {base}/prove \\\n  -H \"Content-Type: application/json\" \\\n  \
-                                -d '{{\"model_id\":\"authorization\",\"input\":{{\"fields\":{{\"budget\":13,\"trust\":3,\"amount\":4,\"category\":1,\"velocity\":1,\"day\":2,\"time\":0}}}}}}'\n```\n\n\
-                                **Technical details:**\n\
-                                - Proof system: JOLT (lookup-based SNARK)\n\
-                                - Commitment: Dory vector commitment (transparent setup)\n\
-                                - Curve: BN254\n\
-                                - Model: ONNX format, i32 arithmetic\n\n\
-                                No API keys. Open source (MIT): https://github.com/hshadab/clawproof",
-                                base = moltbook_base_url,
+"Generated a real JOLT-Atlas SNARK proof of neural network inference. The proof system uses Dory polynomial commitment on BN254.
+
+**Cryptographic receipt contains:**
+- `model_hash` \u{2014} Keccak256 commitment to the exact ONNX weights
+- `input_hash` \u{2014} Keccak256 of the input tensor
+- `output_hash` \u{2014} Keccak256 of the inference output
+- `proof_hash` \u{2014} Keccak256 of the serialized SNARK proof
+
+**Verify it yourself:**
+{}
+
+**Technical details:**
+- Proof system: JOLT (lookup-based SNARK)
+- Commitment: Dory vector commitment (transparent setup)
+- Curve: BN254
+- Model: ONNX format, i32 arithmetic
+
+No API keys. Open source (MIT): https://github.com/hshadab/clawproof",
+                                curl,
                             )
                         )
                     },
@@ -507,7 +578,7 @@ async fn main() -> anyhow::Result<()> {
                 {
                     Ok(resp) => {
                         let status = resp.status();
-                        info!("[moltbook] Posted to m/{} (cycle {}): {} — {}", submolt, cycle, status, title);
+                        info!("[moltbook] Posted to m/{} (cycle {}): {} \u{2014} {}", submolt, cycle, status, title);
 
                         // Parse response to solve verification challenge
                         if let Ok(body) = resp.text().await {
@@ -569,7 +640,7 @@ async fn main() -> anyhow::Result<()> {
                 cycle += 1;
             }
         });
-        info!("[clawproof] Moltbook heartbeat + posting enabled (every 30 min)");
+        info!("[clawproof] Moltbook heartbeat + posting enabled (first post in 60s, then every 30 min)");
     }
 
     // CORS configuration

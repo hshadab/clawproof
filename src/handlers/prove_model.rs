@@ -147,7 +147,6 @@ pub async fn prove_model(
             )
         })?;
 
-        let client = reqwest::Client::new();
         let url = format!("{}/convert", converter_url);
         let part = reqwest::multipart::Part::bytes(model_bytes)
             .file_name("model")
@@ -157,7 +156,7 @@ pub async fn prove_model(
             .part("file", part)
             .text("source_format", source_format.clone());
 
-        let resp = client.post(&url).multipart(form).send().await.map_err(|e| {
+        let resp = state.http_client.post(&url).multipart(form).send().await.map_err(|e| {
             error!("[clawproof] Converter proxy failed: {:?}", e);
             (
                 StatusCode::BAD_GATEWAY,

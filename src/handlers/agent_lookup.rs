@@ -380,13 +380,12 @@ pub async fn agent_lookup(
         )
     })?;
 
-    let client = reqwest::Client::new();
     let url = format!(
         "https://www.moltbook.com/api/v1/agents/profile?name={}",
         agent_name
     );
 
-    let resp = client
+    let resp = state.http_client
         .get(&url)
         .header("Authorization", format!("Bearer {}", api_key))
         .send()

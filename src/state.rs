@@ -37,4 +37,5 @@ pub struct AppState {
     pub registry: Arc<RwLock<ModelRegistry>>,
     pub vocabs: Arc<HashMap<String, VocabData>>,
     pub preprocessing: Arc<dashmap::DashMap<String, PreprocessingCache>>,
+    pub http_client: reqwest::Client,
 }
