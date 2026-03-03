@@ -30,8 +30,6 @@ use crate::models::{InputType, ModelRegistry};
 use crate::receipt::ReceiptStore;
 use crate::state::{AppState, PreprocessingCache, Snark, VocabData};
 
-static RE_DUP: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r"([^aeioulsctm])\1{2,}").unwrap());
 static RE_WS: LazyLock<regex::Regex> =
     LazyLock::new(|| regex::Regex::new(r"\s+").unwrap());
 static RE_DIGITS: LazyLock<regex::Regex> =
@@ -58,9 +56,21 @@ fn solve_moltbook_challenge(challenge: &str) -> Option<String> {
             }
         })
         .collect();
-    // Collapse repeated consonants (e.g., "thhree" -> "three") but
-    // preserve valid doubles in words like "committee", "balloon", etc.
-    let clean = RE_DUP.replace_all(&clean, "$1$1");
+    // Collapse runs of 3+ identical chars down to 2 (e.g., "thhree" -> "three")
+    let clean = {
+        let mut out = String::with_capacity(clean.len());
+        let mut chars = clean.chars().peekable();
+        while let Some(c) = chars.next() {
+            out.push(c);
+            let mut run = 1u32;
+            while chars.peek() == Some(&c) {
+                chars.next();
+                run += 1;
+                if run <= 2 { out.push(c); }
+            }
+        }
+        out
+    };
     // Collapse whitespace
     let clean = RE_WS.replace_all(&clean, " ");
 
@@ -84,7 +94,7 @@ fn solve_moltbook_challenge(challenge: &str) -> Option<String> {
             if val == 100.0 {
                 // "hundred" multiplies the current accumulator
                 current = Some(current.unwrap_or(1.0) * 100.0);
-            } else if val >= 20.0 && val < 100.0 {
+            } else if (20.0..100.0).contains(&val) {
                 // Tens place — start or extend a compound
                 if let Some(c) = current {
                     numbers.push(c);

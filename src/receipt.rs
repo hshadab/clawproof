@@ -329,9 +329,9 @@ impl ReceiptStore {
     pub fn insert(&self, receipt: Receipt) {
         self.cache.insert(receipt.id.clone(), receipt.clone());
         let db = self.db.clone();
-        let _ = tokio::task::spawn_blocking(move || {
+        drop(tokio::task::spawn_blocking(move || {
             db.insert(&receipt);
-        });
+        }));
     }
 
     pub fn get(&self, id: &str) -> Option<Receipt> {
@@ -354,17 +354,17 @@ impl ReceiptStore {
             f(entry.value_mut());
             let receipt = entry.value().clone();
             let db = self.db.clone();
-            let _ = tokio::task::spawn_blocking(move || {
+            drop(tokio::task::spawn_blocking(move || {
                 db.insert(&receipt);
-            });
+            }));
         } else if let Some(mut receipt) = self.db.get(id) {
             // Receipt was evicted from cache — load from SQLite, apply mutation, write back
             f(&mut receipt);
             self.cache.insert(receipt.id.clone(), receipt.clone());
             let db = self.db.clone();
-            let _ = tokio::task::spawn_blocking(move || {
+            drop(tokio::task::spawn_blocking(move || {
                 db.insert(&receipt);
-            });
+            }));
         } else {
             warn!("[clawproof] update called for unknown receipt {}", id);
         }

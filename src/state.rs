@@ -10,12 +10,12 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use zkml_jolt_core::jolt::{JoltProverPreprocessing, JoltSNARK, JoltVerifierPreprocessing};
 
-pub type PCS = DoryCommitmentScheme;
-pub type Snark = JoltSNARK<Fr, PCS, KeccakTranscript>;
+pub type Pcs = DoryCommitmentScheme;
+pub type Snark = JoltSNARK<Fr, Pcs, KeccakTranscript>;
 
 pub struct PreprocessingCache {
-    pub prover: JoltProverPreprocessing<Fr, PCS>,
-    pub verifier: JoltVerifierPreprocessing<Fr, PCS>,
+    pub prover: JoltProverPreprocessing<Fr, Pcs>,
+    pub verifier: JoltVerifierPreprocessing<Fr, Pcs>,
 }
 
 // SAFETY: The preprocessing data is read-only after construction.

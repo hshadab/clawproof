@@ -126,7 +126,7 @@ fn parse_agent_name(input: &str) -> Option<String> {
     }
 
     // Otherwise treat the whole thing as a username (no slashes, no spaces)
-    let name = trimmed.split('/').last().unwrap_or(trimmed);
+    let name = trimmed.split('/').next_back().unwrap_or(trimmed);
     if !name.is_empty() && !name.contains(' ') && !name.contains('.') {
         return Some(name.to_string());
     }
