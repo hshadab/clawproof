@@ -91,13 +91,19 @@
         .demo-link { display: inline-block; margin-top: 0.5rem; font-family: var(--mono); font-size: 0.6875rem; color: var(--link); text-decoration: none; }
         .demo-link:hover { text-decoration: underline; }
 
-        /* Use case scenario cards */
-        .use-cases { margin-bottom: 1.5rem; }
-        .use-cases-header { font-size: 0.8125rem; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.625rem; }
-        .use-cases-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.625rem; }
-        @media (max-width: 600px) { .use-cases-grid { grid-template-columns: 1fr; } }
-        .use-case { background: var(--bg2); border: 1px solid var(--border-light); border-radius: 8px; padding: 0.875rem; display: flex; flex-direction: column; }
-        .use-case-icon { font-size: 1.25rem; margin-bottom: 0.375rem; }
+        /* Use case scenario cards — collapsible */
+        .use-cases { margin-bottom: 1.5rem; border: 1px solid var(--border-light); border-radius: 8px; overflow: hidden; }
+        .use-cases-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 0.625rem 0.875rem; background: var(--bg2); border: none; cursor: pointer; color: var(--text2); }
+        .use-cases-toggle:hover { background: var(--bg3); }
+        .use-cases-toggle h3 { font-size: 0.8125rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin: 0; }
+        .use-cases-toggle .chevron { font-size: 0.75rem; transition: transform 0.2s; }
+        .use-cases.open .use-cases-toggle .chevron { transform: rotate(180deg); }
+        .use-cases-body { display: none; padding: 0.625rem; border-top: 1px solid var(--border-light); }
+        .use-cases.open .use-cases-body { display: block; }
+        .use-cases-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.625rem; }
+        @media (max-width: 720px) { .use-cases-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 480px) { .use-cases-grid { grid-template-columns: 1fr; } }
+        .use-case { background: var(--bg); border: 1px solid var(--border-light); border-radius: 8px; padding: 0.875rem; display: flex; flex-direction: column; }
         .use-case-title { font-size: 0.8125rem; font-weight: 600; margin-bottom: 0.25rem; }
         .use-case-desc { color: var(--text2); font-size: 0.6875rem; line-height: 1.5; flex: 1; }
         .use-case-model { font-family: var(--mono); font-size: 0.625rem; color: var(--text3); margin-top: 0.5rem; }
@@ -252,27 +258,38 @@
         </div>
     </div>
 
-    <!-- Use cases -->
-    <div class="use-cases">
-        <div class="use-cases-header">What can you prove?</div>
-        <div class="use-cases-grid">
-            <div class="use-case">
-                <div class="use-case-title">Transaction approval</div>
-                <div class="use-case-desc">An AI agent approves a purchase. The merchant needs proof the model actually classified it as authorized &mdash; not that someone manually overrode the decision.</div>
-                <div class="use-case-model">authorization model</div>
-                <button class="use-case-try" onclick="tryUseCase('authorization')">Try it &rarr;</button>
-            </div>
-            <div class="use-case">
-                <div class="use-case-title">Agent trust scoring</div>
-                <div class="use-case-desc">Before transacting with an unknown agent, you check their trust score. The proof lets any third party verify the assessment is real, not fabricated.</div>
-                <div class="use-case-model">agent_trust model</div>
-                <button class="use-case-try" onclick="tryUseCase('agent_trust')">Try it &rarr;</button>
-            </div>
-            <div class="use-case">
-                <div class="use-case-title">News classification audit</div>
-                <div class="use-case-desc">A trading bot classifies a headline as BUSINESS and executes a trade. Auditors need proof the classifier actually ran &mdash; and what it returned.</div>
-                <div class="use-case-model">sentiment model</div>
-                <button class="use-case-try" onclick="tryUseCase('sentiment')">Try it &rarr;</button>
+    <!-- Use cases (collapsed by default) -->
+    <div class="use-cases" id="use-cases">
+        <button class="use-cases-toggle" onclick="toggleUseCases()">
+            <h3>What can you prove?</h3>
+            <span class="chevron">&#9660;</span>
+        </button>
+        <div class="use-cases-body">
+            <div class="use-cases-grid">
+                <div class="use-case">
+                    <div class="use-case-title">Transaction approval</div>
+                    <div class="use-case-desc">An AI agent approves a purchase. The merchant needs proof the model actually classified it as authorized &mdash; not that someone overrode the decision.</div>
+                    <div class="use-case-model">authorization model</div>
+                    <button class="use-case-try" onclick="tryUseCase('authorization')">Try it &rarr;</button>
+                </div>
+                <div class="use-case">
+                    <div class="use-case-title">Agent trust scoring</div>
+                    <div class="use-case-desc">Before transacting with an unknown agent, you check their trust score. The proof lets any third party verify the assessment is real, not fabricated.</div>
+                    <div class="use-case-model">agent_trust model</div>
+                    <button class="use-case-try" onclick="tryUseCase('agent_trust')">Try it &rarr;</button>
+                </div>
+                <div class="use-case">
+                    <div class="use-case-title">News classification audit</div>
+                    <div class="use-case-desc">A trading bot classifies a headline as BUSINESS and executes a trade. Auditors need proof the classifier actually ran &mdash; and what it returned.</div>
+                    <div class="use-case-model">sentiment model</div>
+                    <button class="use-case-try" onclick="tryUseCase('sentiment')">Try it &rarr;</button>
+                </div>
+                <div class="use-case">
+                    <div class="use-case-title">Your own model</div>
+                    <div class="use-case-desc">Upload any ONNX model (up to 5MB) and generate a zkML proof for your own architecture. Supports PyTorch, TensorFlow, and sklearn via auto-conversion.</div>
+                    <div class="use-case-model">any ONNX model</div>
+                    <button class="use-case-try" onclick="tryUpload()">Upload &rarr;</button>
+                </div>
             </div>
         </div>
     </div>
@@ -799,16 +816,32 @@ async function lookupAgent() {
     btn.disabled = false; btn.textContent = 'Look up';
 }
 
+// --- Use cases (collapsible) ---
+function toggleUseCases() {
+    const el = document.getElementById('use-cases');
+    el.classList.toggle('open');
+    localStorage.setItem('cp-usecases-open', el.classList.contains('open') ? '1' : '');
+}
+if (localStorage.getItem('cp-usecases-open')) {
+    document.getElementById('use-cases').classList.add('open');
+}
+
 // --- Use case "Try it" ---
-function tryUseCase(modelId) {
-    // Switch to Prove tab
+function switchToTab(name) {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    document.querySelector('#tab-prove').classList.add('active');
-    document.querySelectorAll('.tab').forEach(t => { if (t.textContent === 'Prove') t.classList.add('active'); });
-    // Select the model and load sample data
+    document.querySelector('#tab-' + name).classList.add('active');
+    document.querySelectorAll('.tab').forEach(t => { if (t.textContent === name.charAt(0).toUpperCase() + name.slice(1)) t.classList.add('active'); });
+}
+
+function tryUseCase(modelId) {
+    switchToTab('prove');
     selectModel(modelId);
     loadSample();
+}
+
+function tryUpload() {
+    switchToTab('upload');
 }
 
 // --- Prove ---

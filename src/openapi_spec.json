@@ -1025,6 +1025,212 @@
         }
       }
     },
+    "/receipts/recent": {
+      "get": {
+        "operationId": "listRecentReceipts",
+        "summary": "List recent proof receipts",
+        "description": "Returns a list of the most recent proof receipts, ordered by creation time (newest first). Each entry is a summary with receipt ID, model info, prediction, status, and timing. Useful for dashboards, activity feeds, or checking recent proof results.",
+        "tags": ["Receipts"],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of receipts to return. Defaults to 10, capped at 50.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 10
+            },
+            "example": 5
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of recent receipt summaries, ordered by creation time descending.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReceiptSummary"
+                  }
+                },
+                "example": [
+                  {
+                    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                    "model_id": "authorization",
+                    "model_name": "Transaction Authorization",
+                    "label": "AUTHORIZED",
+                    "confidence": 0.793,
+                    "status": "verified",
+                    "prove_time_ms": 42350,
+                    "verify_time_ms": 120,
+                    "created_at": "2025-01-15T10:30:00Z"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/prove/model": {
+      "post": {
+        "operationId": "proveWithModel",
+        "summary": "Upload a model and generate a proof in one call",
+        "description": "Combines model upload, preprocessing, inference, and proof generation into a single request. Upload an ONNX model (or a model in PyTorch/sklearn/TensorFlow format if a converter is configured) along with an input vector. The endpoint validates the model, runs SNARK preprocessing, performs inference, and starts proof generation — returning the inference result immediately while the proof runs in the background. Rate limited to 1 request per 5 minutes.",
+        "tags": ["Proving"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ProveModelRequest"
+              },
+              "encoding": {
+                "onnx_file": {
+                  "contentType": "application/octet-stream"
+                },
+                "labels": {
+                  "contentType": "application/json"
+                },
+                "input_raw": {
+                  "contentType": "application/json"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Model uploaded, inference complete, proof generation started in the background.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProveModelResponse"
+                },
+                "example": {
+                  "receipt_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                  "receipt_url": "https://clawproof.onrender.com/receipt/a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                  "model_id": "my_model_a3b4c5d6",
+                  "output": {
+                    "raw_output": [142, -37],
+                    "predicted_class": 0,
+                    "label": "class_0",
+                    "confidence": 0.793
+                  },
+                  "status": "proving"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request. Missing required fields, invalid JSON input, or model validation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "missing_model": {
+                    "summary": "No model file provided",
+                    "value": {
+                      "error": "Missing model file",
+                      "hint": "Upload an ONNX model as 'onnx_file' or 'model_file'"
+                    }
+                  },
+                  "missing_input": {
+                    "summary": "No input vector provided",
+                    "value": {
+                      "error": "Missing input_raw field",
+                      "hint": "Provide input_raw as a JSON array of integers, e.g. [1,0,3,7]"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Model file exceeds the 5 MB size limit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Model file exceeds 5MB limit"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Model conversion or validation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Invalid ONNX model — failed to load"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. This endpoint allows 1 request per 5 minutes.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error during model save, preprocessing, or inference.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Preprocessing failed"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Requested source format conversion not available (converter service not configured).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Model converter not configured",
+                  "hint": "Upload an ONNX model directly, or set CONVERTER_URL on the server"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Converter service unreachable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Converter service unavailable"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/openapi.json": {
       "get": {
         "operationId": "getOpenApiSpec",
@@ -1650,6 +1856,147 @@
               "x_verified": { "type": "boolean", "description": "Whether the owner's X account is verified (maps to verification level 2)." },
               "content_spam_score": { "type": "number", "description": "Spam likelihood score (0.0-1.0) derived from analyzing recent posts and comments for link density, duplicate content, short posts, and low vocabulary diversity." }
             }
+          }
+        }
+      },
+      "ReceiptSummary": {
+        "type": "object",
+        "description": "A compact receipt summary used in the recent receipts list. Contains the key fields for display without full proof details.",
+        "required": ["id", "model_id", "model_name", "label", "confidence", "status", "created_at"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique receipt identifier.",
+            "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          },
+          "model_id": {
+            "type": "string",
+            "description": "Model used for inference.",
+            "example": "authorization"
+          },
+          "model_name": {
+            "type": "string",
+            "description": "Human-readable model name.",
+            "example": "Transaction Authorization"
+          },
+          "label": {
+            "type": "string",
+            "description": "Predicted class label.",
+            "example": "AUTHORIZED"
+          },
+          "confidence": {
+            "type": "number",
+            "format": "double",
+            "description": "Prediction confidence (0.0-1.0).",
+            "example": 0.793
+          },
+          "status": {
+            "type": "string",
+            "enum": ["proving", "verified", "failed"],
+            "description": "Current proof status.",
+            "example": "verified"
+          },
+          "prove_time_ms": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Proof generation time in milliseconds. Null while proving.",
+            "example": 42350
+          },
+          "verify_time_ms": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Proof verification time in milliseconds. Null while proving.",
+            "example": 120
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp when the receipt was created.",
+            "example": "2025-01-15T10:30:00Z"
+          }
+        }
+      },
+      "ProveModelRequest": {
+        "type": "object",
+        "description": "Multipart form fields for uploading a model and generating a proof in one call.",
+        "required": ["onnx_file", "input_raw"],
+        "properties": {
+          "onnx_file": {
+            "type": "string",
+            "format": "binary",
+            "description": "The model file. ONNX format preferred (max 5 MB). Also accepted as 'model_file'."
+          },
+          "source_format": {
+            "type": "string",
+            "enum": ["onnx", "pytorch", "sklearn", "tensorflow"],
+            "default": "onnx",
+            "description": "Model format. Defaults to 'onnx'. Non-ONNX formats require a converter service."
+          },
+          "input_raw": {
+            "type": "string",
+            "description": "JSON array of integers representing the raw input vector, e.g. '[1,0,3,7]'.",
+            "example": "[1, 0, 0, 3, 7, 0, 0, 2]"
+          },
+          "input_dim": {
+            "type": "integer",
+            "description": "Input dimension. Auto-inferred from input_raw length if not provided.",
+            "example": 8
+          },
+          "labels": {
+            "type": "string",
+            "description": "JSON-encoded array of output class labels. Defaults to ['class_0', 'class_1'] if not provided.",
+            "example": "[\"legitimate\", \"fraudulent\"]"
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable model name for display. Defaults to 'uploaded'.",
+            "example": "My Fraud Detector"
+          },
+          "trace_length": {
+            "type": "integer",
+            "description": "JOLT SNARK trace length (power of 2). Defaults to 16384.",
+            "default": 16384,
+            "example": 16384
+          },
+          "webhook_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Optional HTTPS URL for proof completion callback.",
+            "example": "https://example.com/hooks/clawproof"
+          }
+        }
+      },
+      "ProveModelResponse": {
+        "type": "object",
+        "description": "Response from a successful prove-with-model request. Contains the inference result and a receipt ID for tracking the background proof.",
+        "required": ["receipt_id", "receipt_url", "model_id", "output", "status"],
+        "properties": {
+          "receipt_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique receipt identifier for tracking the proof.",
+            "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          },
+          "receipt_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Direct URL to retrieve the full receipt.",
+            "example": "https://clawproof.onrender.com/receipt/a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          },
+          "model_id": {
+            "type": "string",
+            "description": "Auto-generated model ID (name + UUID suffix). Use this for future /prove requests with the same model.",
+            "example": "my_model_a3b4c5d6"
+          },
+          "output": {
+            "$ref": "#/components/schemas/InferenceOutput"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["proving"],
+            "description": "Always 'proving' — the SNARK proof is generating in the background.",
+            "example": "proving"
           }
         }
       },
