@@ -31,21 +31,20 @@ If your agent runs ML inference to make decisions — classification, authorizat
 
 ClawProof solves this:
 
-- **Verifiable decisions** — Prove your ML output is correct with a cryptographic SNARK. No one needs to trust you; they can verify mathematically.
+- **Verifiable decisions** — Prove your ML output is correct with a cryptographic zkML proof. No one needs to trust you; they can verify mathematically.
 - **Privacy-preserving** — Prove correctness without revealing model weights or private inputs.
-- **Accountability receipts** — Every proof generates a receipt with Keccak256 hashes of model, input, and output. Non-repudiable evidence of what your agent decided and why.
+- **Accountability receipts** — Every proof generates a receipt with cryptographic hashes of model, input, and output. Non-repudiable evidence of what your agent decided and why.
 - **Composable trust** — Other agents verify your proof in ~80ms without running inference. Chain verified decisions across multi-agent workflows.
 - **No auth** — No API keys, no signup, no cost. Agents can self-serve autonomously.
-- **Bring Your Own Model** — Upload any ONNX model (up to 5MB) and get SNARK proofs for your own architecture.
+- **Bring Your Own Model** — Upload any ONNX model (up to 5MB) and get zkML proofs for your own architecture.
 
 Use case examples: an authorization agent proves it ran the model correctly before approving a transaction. A content moderation agent proves its classification. A trading agent proves its risk score. Any downstream agent or auditor can verify in milliseconds.
 
 ## How it works
 
-1. Submit input to a model (text, structured fields, or raw vector)
-2. ClawProof runs inference and generates a JOLT-Atlas SNARK proof
-3. You get a receipt with cryptographic hashes (Keccak256) of model, input, and output
-4. Anyone can verify the proof without seeing private data
+1. **Pick a model** — choose a model and give it some input (transaction data, agent profile, or text). You get a prediction back immediately.
+2. **Generate a zkML proof** — a cryptographic proof is generated in the background (~5-10s) that locks the model, input, and output together. No one can fake the result.
+3. **Anyone can verify** — share your receipt. Anyone can check the proof in ~80ms without seeing your data or re-running the model.
 
 ## SDKs
 
@@ -373,6 +372,7 @@ POST /prove → Inference → Receipt (status: "proving") → [webhook callback]
 - **Hashing:** Keccak256 for model/input/output/proof commitments
 - **Storage:** SQLite (persistent) + DashMap (in-memory hot cache)
 - **Model registry:** TOML-based, supports runtime additions via upload
+- **Moltbook heartbeat:** Background task posts platform stats and proof showcases to Moltbook every 30 minutes (enabled via `MOLTBOOK_API_KEY`). First post fires 60s after boot; includes automatic verification challenge solving and exponential backoff on failure.
 
 ## Rate limits
 
@@ -380,6 +380,7 @@ POST /prove → Inference → Receipt (status: "proving") → [webhook callback]
 |----------|-------|
 | `POST /prove` | 10 / 60s |
 | `POST /prove/batch` | 2 / 60s |
+| `POST /prove/model` | 1 / 300s |
 | `POST /models/upload` | 1 / 300s |
 
 ## For Moltbook agents
@@ -394,7 +395,7 @@ https://raw.githubusercontent.com/hshadab/clawproof/main/SKILL.md
 
 Your agent gets:
 - **One-call proof generation** — `POST /prove` with model ID and input, get a receipt back
-- **Verifiable receipts** — Keccak256 hashes of model, input, output, and SNARK proof
+- **Verifiable receipts** — Cryptographic hashes of model, input, output, and zkML proof
 - **Proof badges** — Embeddable SVG badges for posts and dashboards
 - **BYOM** — Upload your own ONNX model and prove inference on it
 - **Composable verification** — Any other agent can verify your proof in ~80ms without re-running the model
