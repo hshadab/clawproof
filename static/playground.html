@@ -92,7 +92,8 @@
         .demo-link:hover { text-decoration: underline; }
 
         /* Model cards */
-        .models-grid { display: grid; gap: 0.75rem; }
+        .models-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
+        @media (max-width: 600px) { .models-grid { grid-template-columns: 1fr; } }
         .model-card { border: 1px solid var(--border-light); border-radius: 8px; padding: 1rem; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; background: var(--bg2); }
         .model-card:hover { border-color: var(--accent); }
         .model-card.selected { border-color: var(--accent); background: var(--bg3); box-shadow: 0 0 0 1px var(--accent-border); }
@@ -149,24 +150,27 @@
         .ops-list li { font-size: 0.75rem; color: var(--text2); padding: 0.125rem 0; font-family: var(--mono); }
         .ops-list li::before { content: "\2022"; color: var(--accent); margin-right: 0.5rem; }
 
-        /* How it works flow */
-        .how-it-works { margin-bottom: 1.5rem; }
-        .how-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
-        .how-header h3 { font-size: 0.8125rem; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; }
-        .how-dismiss { background: none; border: none; color: var(--text3); font-size: 0.75rem; cursor: pointer; padding: 0.125rem 0.375rem; border-radius: 4px; }
-        .how-dismiss:hover { color: var(--text2); background: var(--bg3); }
+        /* How it works — collapsible */
+        .how-it-works { margin-bottom: 1.5rem; border: 1px solid var(--border-light); border-radius: 8px; overflow: hidden; }
+        .how-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 0.625rem 0.875rem; background: var(--bg2); border: none; cursor: pointer; color: var(--text2); }
+        .how-toggle:hover { background: var(--bg3); }
+        .how-toggle h3 { font-size: 0.8125rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin: 0; }
+        .how-toggle .chevron { font-size: 0.75rem; transition: transform 0.2s; }
+        .how-it-works.open .how-toggle .chevron { transform: rotate(180deg); }
+        .how-body { display: none; padding: 0.875rem; border-top: 1px solid var(--border-light); }
+        .how-it-works.open .how-body { display: block; }
         .flow { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: stretch; gap: 0; }
-        .flow-step { background: var(--bg2); border: 1px solid var(--border-light); border-radius: 8px; padding: 0.875rem 0.75rem; text-align: center; position: relative; }
+        .flow-step { background: var(--bg); border: 1px solid var(--border-light); border-radius: 8px; padding: 0.875rem 0.75rem; text-align: center; }
         .flow-step:first-child { border-top: 2px solid var(--accent); }
         .flow-step:nth-child(3) { border-top: 2px solid var(--amber); }
         .flow-step:nth-child(5) { border-top: 2px solid var(--green); }
-        .flow-num { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: var(--bg3); color: var(--text2); font-size: 0.6875rem; font-weight: 700; font-family: var(--mono); margin-bottom: 0.375rem; }
+        .flow-num { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; font-size: 0.6875rem; font-weight: 700; font-family: var(--mono); margin-bottom: 0.375rem; }
         .flow-step:first-child .flow-num { background: var(--accent); color: #fff; }
         .flow-step:nth-child(3) .flow-num { background: var(--amber); color: #fff; }
         .flow-step:nth-child(5) .flow-num { background: var(--green); color: #fff; }
         .flow-title { font-size: 0.8125rem; font-weight: 600; margin-bottom: 0.25rem; }
         .flow-desc { color: var(--text2); font-size: 0.6875rem; line-height: 1.5; }
-        .flow-code { font-family: var(--mono); font-size: 0.625rem; color: var(--text3); margin-top: 0.375rem; background: var(--bg); padding: 0.25rem 0.5rem; border-radius: 4px; display: inline-block; }
+        .flow-detail { font-family: var(--mono); font-size: 0.625rem; color: var(--text3); margin-top: 0.375rem; }
         .flow-arrow { display: flex; align-items: center; justify-content: center; color: var(--text3); font-size: 1.125rem; padding: 0 0.25rem; }
         @media (max-width: 600px) {
             .flow { grid-template-columns: 1fr; gap: 0; }
@@ -203,32 +207,34 @@
         <button class="tab" onclick="switchTab('api')">API</button>
     </div>
 
-    <!-- How it works -->
+    <!-- How it works (collapsed by default) -->
     <div class="how-it-works" id="how-it-works">
-        <div class="how-header">
+        <button class="how-toggle" onclick="toggleHow()">
             <h3>How it works</h3>
-            <button class="how-dismiss" onclick="dismissHow()" title="Hide this section">hide</button>
-        </div>
-        <div class="flow">
-            <div class="flow-step">
-                <div class="flow-num">1</div>
-                <div class="flow-title">Submit</div>
-                <div class="flow-desc">Send your model ID and input to the API. You get back a prediction and a <code>receipt_id</code> immediately.</div>
-                <div class="flow-code">POST /prove</div>
-            </div>
-            <div class="flow-arrow">&rarr;</div>
-            <div class="flow-step">
-                <div class="flow-num">2</div>
-                <div class="flow-title">Prove</div>
-                <div class="flow-desc">A JOLT-Atlas SNARK proof is generated in the background. The proof cryptographically binds the model, input, and output together.</div>
-                <div class="flow-code">~5&ndash;10s</div>
-            </div>
-            <div class="flow-arrow">&rarr;</div>
-            <div class="flow-step">
-                <div class="flow-num">3</div>
-                <div class="flow-title">Verify</div>
-                <div class="flow-desc">Anyone can verify the proof in ~80ms without re-running the model. The receipt has cryptographic hashes of everything.</div>
-                <div class="flow-code">POST /verify</div>
+            <span class="chevron">&#9660;</span>
+        </button>
+        <div class="how-body">
+            <div class="flow">
+                <div class="flow-step">
+                    <div class="flow-num">1</div>
+                    <div class="flow-title">Pick a model</div>
+                    <div class="flow-desc">Choose a model and give it some input &mdash; transaction data, agent profile, or text. You get a prediction back immediately.</div>
+                    <div class="flow-detail">Try it in the Prove tab</div>
+                </div>
+                <div class="flow-arrow">&rarr;</div>
+                <div class="flow-step">
+                    <div class="flow-num">2</div>
+                    <div class="flow-title">Generate a zkML proof</div>
+                    <div class="flow-desc">A cryptographic proof is generated in the background that locks the model, input, and output together. No one can fake the result.</div>
+                    <div class="flow-detail">Takes ~5&ndash;10 seconds</div>
+                </div>
+                <div class="flow-arrow">&rarr;</div>
+                <div class="flow-step">
+                    <div class="flow-num">3</div>
+                    <div class="flow-title">Anyone can verify</div>
+                    <div class="flow-desc">Share your receipt. Anyone can verify the proof in milliseconds without seeing your data or re-running the model.</div>
+                    <div class="flow-detail">Verification takes ~80ms</div>
+                </div>
             </div>
         </div>
     </div>
@@ -486,14 +492,18 @@ function updateToggleIcon(theme) {
 
 initTheme();
 
-// --- How it works ---
-function dismissHow() {
-    document.getElementById('how-it-works').style.display = 'none';
-    localStorage.setItem('cp-how-dismissed', '1');
+// --- How it works (collapsible, closed by default) ---
+function toggleHow() {
+    const el = document.getElementById('how-it-works');
+    el.classList.toggle('open');
+    localStorage.setItem('cp-how-open', el.classList.contains('open') ? '1' : '');
 }
-if (localStorage.getItem('cp-how-dismissed')) {
-    document.getElementById('how-it-works').style.display = 'none';
+if (localStorage.getItem('cp-how-open')) {
+    document.getElementById('how-it-works').classList.add('open');
 }
+
+// Models hidden from the playground (still accessible via API)
+const HIDDEN_MODELS = ['spam_detector'];
 
 // --- Tabs ---
 function switchTab(name) {
@@ -619,19 +629,24 @@ async function init() {
         const res = await fetch('/models');
         models = await res.json();
         renderModelCards();
-        if (models.length > 0) selectModel(models[0].id);
+        const visible = visibleModels();
+        if (visible.length > 0) selectModel(visible[0].id);
     } catch(e) {
         document.getElementById('models-grid').textContent = 'Failed to load models.';
     }
 }
 
+function visibleModels() {
+    return models.filter(m => !HIDDEN_MODELS.includes(m.id));
+}
+
 function renderModelCards() {
     const grid = document.getElementById('models-grid');
-    grid.innerHTML = models.map(m =>
+    grid.innerHTML = visibleModels().map(m =>
         '<div class="model-card" id="card-' + m.id + '" onclick="selectModel(\'' + m.id + '\')">' +
             '<h3>' + m.name + '</h3>' +
             '<div class="desc">' + m.description + '</div>' +
-            '<div class="meta">' + m.input_type + ' \u00B7 ' + m.labels.join(' / ') + ' \u00B7 trace ' + m.trace_length + '</div>' +
+            '<div class="meta">' + m.labels.join(' / ') + '</div>' +
         '</div>'
     ).join('');
 }
