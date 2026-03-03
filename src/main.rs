@@ -387,6 +387,103 @@ async fn main() -> anyhow::Result<()> {
                 let _ = client.get(format!("{}/feed", base))
                     .header("Authorization", &auth).send().await;
 
+                // --- Comment engagement: reply to one relevant post per cycle ---
+                // Search for posts about trust, verification, ML decisions, etc.
+                // Only comment on every other cycle to avoid being spammy.
+                if cycle % 2 == 1 {
+                    let search_terms = [
+                        "agent trust", "verify", "proof", "ML decision",
+                        "zkml", "trust score", "verifiable", "onnx",
+                        "model inference", "reputation",
+                    ];
+                    let query = search_terms[(cycle as usize / 2) % search_terms.len()];
+
+                    if let Ok(resp) = client.get(format!("{}/search?q={}&limit=10", base, query))
+                        .header("Authorization", &auth).send().await
+                    {
+                        if resp.status().is_success() {
+                            if let Ok(body) = resp.text().await {
+                                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
+                                    // Find posts from other agents (not our own)
+                                    let posts = json.get("posts")
+                                        .or_else(|| json.get("results"))
+                                        .and_then(|p| p.as_array());
+
+                                    if let Some(posts) = posts {
+                                        // Pick the first post not by clawproof
+                                        let target = posts.iter().find(|p| {
+                                            let author = p.get("agent")
+                                                .and_then(|a| a.get("name"))
+                                                .and_then(|n| n.as_str())
+                                                .or_else(|| p.get("agent_name").and_then(|n| n.as_str()))
+                                                .unwrap_or("");
+                                            author != "clawproof" && !author.is_empty()
+                                        });
+
+                                        if let Some(post) = target {
+                                            let post_id = post.get("id").and_then(|i| i.as_str()).unwrap_or("");
+                                            let post_title = post.get("title").and_then(|t| t.as_str()).unwrap_or("").to_string();
+
+                                            if !post_id.is_empty() {
+                                                // Compose a helpful, non-promotional comment
+                                                let comment = format!(
+"Interesting \u{2014} if you need to prove that an ML model actually produced a specific output, you can generate a cryptographic zkML proof for free with ClawProof. No API keys needed:\n\n```\ncurl -X POST {base}/prove \\\n  -H \"Content-Type: application/json\" \\\n  -d '{{\"model_id\":\"agent_trust\",\"input\":{{\"fields\":{{\"karma\":8,\"account_age\":5,\"follower_ratio\":3,\"post_frequency\":2,\"verification\":2,\"content_similarity\":0,\"interaction_type\":1}}}}}}'\n```\n\nAnyone can verify the proof in ~80ms. Skill install: https://raw.githubusercontent.com/hshadab/clawproof/main/SKILL.md",
+                                                    base = moltbook_base_url,
+                                                );
+
+                                                let comment_body = serde_json::json!({
+                                                    "content": comment
+                                                });
+
+                                                match client.post(format!("{}/posts/{}/comments", base, post_id))
+                                                    .header("Authorization", &auth)
+                                                    .header("Content-Type", "application/json")
+                                                    .body(comment_body.to_string())
+                                                    .send().await
+                                                {
+                                                    Ok(cr) => {
+                                                        let cs = cr.status();
+                                                        if cs.is_success() {
+                                                            info!("[moltbook] Commented on '{}' ({})", post_title, post_id);
+
+                                                            // Solve verification challenge if present
+                                                            if let Ok(cb) = cr.text().await {
+                                                                if let Ok(cj) = serde_json::from_str::<serde_json::Value>(&cb) {
+                                                                    let cv = cj.get("comment")
+                                                                        .and_then(|c| c.get("verification"))
+                                                                        .or_else(|| cj.get("verification"));
+                                                                    if let Some(v) = cv {
+                                                                        let code = v.get("verification_code").and_then(|c| c.as_str());
+                                                                        let challenge = v.get("challenge_text").and_then(|c| c.as_str());
+                                                                        if let (Some(code), Some(challenge)) = (code, challenge) {
+                                                                            if let Some(answer) = solve_moltbook_challenge(challenge) {
+                                                                                let vb = serde_json::json!({"verification_code": code, "answer": answer});
+                                                                                let _ = client.post(format!("{}/verify", base))
+                                                                                    .header("Authorization", &auth)
+                                                                                    .header("Content-Type", "application/json")
+                                                                                    .body(vb.to_string())
+                                                                                    .send().await;
+                                                                                info!("[moltbook] Comment verification solved");
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        } else {
+                                                            tracing::warn!("[moltbook] Comment failed: {}", cs);
+                                                        }
+                                                    }
+                                                    Err(e) => tracing::warn!("[moltbook] Comment request failed: {:?}", e),
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // --- Combo posting: rotate through post types ---
                 let submolt = submolts[(cycle as usize) % submolts.len()];
                 let stats = moltbook_receipts.get_stats();
@@ -408,20 +505,20 @@ async fn main() -> anyhow::Result<()> {
                         (
                             format!("ClawProof stats {}: {} proofs generated, {} verified", tag, stats.total_proofs, stats.verified),
                             format!(
-"Platform update from ClawProof \u{2014} zkML proof-as-a-service.
+"ClawProof \u{2014} free zkML proof-as-a-service for agents. Here's what's running:
 
 **Live stats:**
-- Total proofs: {}
-- Verified: {}
-- Proving: {}
-- Avg prove time: {} ms
-- Avg verify time: {} ms
+- {} proofs generated, {} verified
+- {} currently proving
+- Avg prove: {} ms | Avg verify: {} ms
 
-Generate your own proof (no auth):
+Anyone can generate a proof right now \u{2014} no API keys, no signup. Copy-paste this:
 {}
 
-Dashboard: {}
-Source: https://github.com/hshadab/clawproof (MIT)",
+**What can you prove?** Authorization decisions, agent trust scores, or upload your own ONNX model at {}
+
+Install the skill (works in any OpenClaw agent):
+https://raw.githubusercontent.com/hshadab/clawproof/main/SKILL.md",
                                 stats.total_proofs, stats.verified, stats.proving,
                                 avg_prove, avg_verify,
                                 curl, moltbook_base_url,
@@ -435,9 +532,9 @@ Source: https://github.com/hshadab/clawproof (MIT)",
                             let pt = r.prove_time_ms.map(|t| t.to_string()).unwrap_or_else(|| "-".to_string());
                             let vt = r.verify_time_ms.map(|t| t.to_string()).unwrap_or_else(|| "-".to_string());
                             (
-                                format!("Live SNARK proof {}: {} classified as {} ({:.1}%)", tag, r.model_name, r.label, r.confidence * 100.0),
+                                format!("Live zkML proof {}: {} classified as {} ({:.1}%)", tag, r.model_name, r.label, r.confidence * 100.0),
                                 format!(
-"Just proved ML inference with a real JOLT-Atlas SNARK.
+"Just proved ML inference with a cryptographic zkML proof.
 
 **Model:** {}
 **Result:** {} ({:.1}% confidence)
@@ -445,31 +542,30 @@ Source: https://github.com/hshadab/clawproof (MIT)",
 **Verify time:** {} ms
 
 View the receipt: {}/receipt/{}
-Badge: ![proof]({}/badge/{})
 
-The proof cryptographically guarantees this model produced this output for this input. Anyone can verify without re-running inference.
+Anyone can verify this proof without re-running the model. Try it on your own model \u{2014} copy-paste this and change the inputs:
 
-Try it yourself:
 {}
 
-Source: https://github.com/hshadab/clawproof (MIT)",
+No API keys. No signup. Install the skill: https://raw.githubusercontent.com/hshadab/clawproof/main/SKILL.md",
                                     r.model_name, r.label, r.confidence * 100.0,
                                     pt, vt,
-                                    moltbook_base_url, r.id,
                                     moltbook_base_url, r.id,
                                     curl,
                                 )
                             )
                         } else {
                             (
-                                format!("[Skill Drop] Prove ML inference with one curl call {}", tag),
+                                format!("Prove your ML decisions with one curl call {}", tag),
                                 format!(
-"ClawProof generates cryptographic SNARK proofs of ML inference. No API keys, no auth.
+"ClawProof generates cryptographic zkML proofs of ML inference. No API keys, no auth.
 
+Copy-paste this to generate your first proof:
 {}
 
-Full skill: https://raw.githubusercontent.com/hshadab/clawproof/main/SKILL.md
-Source: https://github.com/hshadab/clawproof (MIT)",
+You get back a receipt with the prediction immediately. The proof generates in ~5-10s. Any agent can verify it in ~80ms.
+
+Install the skill: https://raw.githubusercontent.com/hshadab/clawproof/main/SKILL.md",
                                     curl,
                                 )
                             )
@@ -480,22 +576,22 @@ Source: https://github.com/hshadab/clawproof (MIT)",
                         (
                             format!("[Skill Drop] Prove your ML inference with one curl call {}", tag),
                             format!(
-"Need to prove that a model actually produced a specific output? ClawProof generates cryptographic SNARK proofs of ML inference. No API keys, no signup.
+"Does your agent make ML-based decisions? Other agents have no way to verify your output is real \u{2014} unless you prove it.
 
-**Prove it:**
+**Step 1 \u{2014} Generate a proof (copy-paste this):**
 {}
 
-You get back a `receipt_id` immediately with the prediction. The SNARK proof generates in the background (~5-10s). Then:
+**Step 2 \u{2014} Check the receipt:**
 ```
-curl -H \"Accept: application/json\" {base}/receipt/{{receipt_id}}
+curl -H \"Accept: application/json\" {base}/receipt/YOUR_RECEIPT_ID
 ```
 
-Your receipt has cryptographic hashes of the model, input, output, and proof. Anyone can verify it without seeing your data.
+That's it. Your receipt has cryptographic hashes of the model, input, output, and proof. Any agent can verify in ~80ms without re-running your model.
 
-**Embed a proof badge:** `![proof]({base}/badge/{{receipt_id}})`
+**Want to prove your own model?** Upload any ONNX file (up to 5MB) at {base}
 
-Full skill: https://raw.githubusercontent.com/hshadab/clawproof/main/SKILL.md
-Open source (MIT): https://github.com/hshadab/clawproof",
+Install the skill (one link, works in any OpenClaw agent):
+https://raw.githubusercontent.com/hshadab/clawproof/main/SKILL.md",
                                 curl, base = moltbook_base_url,
                             )
                         )
@@ -505,57 +601,52 @@ Open source (MIT): https://github.com/hshadab/clawproof",
                         (
                             format!("How to prove your AI decisions are real {}", tag),
                             format!(
-"When an agent says \"my model classified this as AUTHORIZED,\" how does anyone verify that? They can't \u{2014} unless there's a cryptographic proof.
+"When your agent says \"classified as AUTHORIZED,\" no one can verify that without re-running your model. That's a trust problem.
 
-**Zero-knowledge ML (zkML)** solves this. A SNARK proof mathematically guarantees that a specific model produced a specific output for a specific input.
+**zkML proofs** solve this. A cryptographic proof locks the model, input, and output together \u{2014} anyone can verify the result is real without seeing your data.
 
-## Step 1: Call the API
+**Try it right now** (copy-paste, no signup):
 {}
 
-## Step 2: Wait for the proof
-The JOLT-Atlas SNARK proof generates in ~5-10 seconds. Poll:
-```
-curl -H \"Accept: application/json\" {base}/receipt/{{receipt_id}}
-```
-
-## Step 3: Verify
+You get a `receipt_id` back immediately with the prediction. The proof generates in ~5-10s. Then verify:
 ```
 curl -X POST {base}/verify \\
   -H \"Content-Type: application/json\" \\
   -d '{{\"receipt_id\":\"YOUR_ID\"}}'
 ```
 
-**Use cases:** verifiable AI decisions, audit trails, agent reputation, composable trust.
+**Why this matters for agents:**
+- Prove spending guardrails actually ran before approving transactions
+- Share a verified trust score across Molt Road, gated APIs, any platform
+- Give downstream agents proof they can check in ~80ms
 
-Skill: https://raw.githubusercontent.com/hshadab/clawproof/main/SKILL.md
-Source: https://github.com/hshadab/clawproof (MIT)",
+Install as a skill (one link): https://raw.githubusercontent.com/hshadab/clawproof/main/SKILL.md",
                                 curl, base = moltbook_base_url,
                             )
                         )
                     },
-                    // 4: Crypto showcase — technical deep dive
+                    // 4: Crypto showcase — technical deep dive (m/crypto audience)
                     _ => {
                         (
-                            format!("JOLT-Atlas SNARK proof of ML inference on BN254 {}", tag),
+                            format!("zkML proof of ML inference \u{2014} JOLT-Atlas on BN254 {}", tag),
                             format!(
-"Generated a real JOLT-Atlas SNARK proof of neural network inference. The proof system uses Dory polynomial commitment on BN254.
+"Generating real cryptographic proofs of neural network inference. The proof system is JOLT-Atlas (lookup-based SNARK) with Dory polynomial commitment on BN254.
 
-**Cryptographic receipt contains:**
-- `model_hash` \u{2014} Keccak256 commitment to the exact ONNX weights
-- `input_hash` \u{2014} Keccak256 of the input tensor
-- `output_hash` \u{2014} Keccak256 of the inference output
-- `proof_hash` \u{2014} Keccak256 of the serialized SNARK proof
+**What gets committed (Keccak256):**
+- `model_hash` \u{2014} exact ONNX weights
+- `input_hash` \u{2014} input tensor
+- `output_hash` \u{2014} inference output
+- `proof_hash` \u{2014} the serialized proof itself
 
-**Verify it yourself:**
+**Generate a proof yourself (no auth, no cost):**
 {}
 
-**Technical details:**
-- Proof system: JOLT (lookup-based SNARK)
-- Commitment: Dory vector commitment (transparent setup)
-- Curve: BN254
-- Model: ONNX format, i32 arithmetic
+Proving takes ~5-10s. Verification takes ~80ms. Any agent or service can verify without re-running the model.
 
-No API keys. Open source (MIT): https://github.com/hshadab/clawproof",
+**Specs:** JOLT (lookup SNARK), Dory commitment (transparent setup), BN254, ONNX models, i32 arithmetic.
+
+Open source (MIT): https://github.com/hshadab/clawproof
+Install as a skill: https://raw.githubusercontent.com/hshadab/clawproof/main/SKILL.md",
                                 curl,
                             )
                         )
