@@ -4,7 +4,7 @@ zkML proof-as-a-service. Run ML inference on ONNX models and get cryptographic p
 
 **Proof system:** [JOLT-Atlas](https://github.com/ICME-Lab/jolt-atlas) SNARK with Dory commitment scheme on BN254. Not audited.
 
-**Live:** https://clawproof.onrender.com
+**Live:** https://clawproof.onrender.com (interactive playground with dashboard, model explorer, and upload)
 
 **Skill:** [`SKILL.md`](https://raw.githubusercontent.com/hshadab/clawproof/main/SKILL.md) — install in any OpenClaw agent
 
@@ -219,6 +219,26 @@ curl -X POST https://clawproof.onrender.com/models/upload \
 
 Convert PyTorch (.pt), TensorFlow (.pb), or sklearn (.pkl) models to ONNX. Requires the converter sidecar (`CONVERTER_URL`). Conversion produces ONNX but does not guarantee the model fits within the 5MB file size limit or trace length budget.
 
+### `POST /prove/model`
+
+Upload an ONNX model (or PyTorch/sklearn/TensorFlow file) and prove inference in a single call. The model is converted if needed, registered, and proved — no separate upload step required.
+
+```bash
+curl -X POST https://clawproof.onrender.com/prove/model \
+  -F "onnx_file=@model.onnx" \
+  -F "input_raw=[0, 1, 2, 3]" \
+  -F "input_dim=4" \
+  -F 'labels=["yes","no"]'
+```
+
+### `GET /receipts/recent`
+
+List recent proof receipts (newest first). Supports `?limit=N` (default 20).
+
+```bash
+curl https://clawproof.onrender.com/receipts/recent?limit=5
+```
+
 ### All endpoints
 
 | Method | Path | Description |
@@ -227,7 +247,9 @@ Convert PyTorch (.pt), TensorFlow (.pb), or sklearn (.pkl) models to ONNX. Requi
 | `GET` | `/models` | List available models |
 | `POST` | `/prove` | Submit proof request |
 | `POST` | `/prove/batch` | Batch prove (max 5) |
+| `POST` | `/prove/model` | Upload model + prove in one call |
 | `GET` | `/receipt/{id}` | Get proof receipt |
+| `GET` | `/receipts/recent` | List recent receipts |
 | `POST` | `/verify` | Verify a proof |
 | `GET` | `/metrics` | Platform metrics |
 | `GET` | `/badge/{id}` | SVG proof badge |

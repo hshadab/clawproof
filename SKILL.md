@@ -150,6 +150,8 @@ Use the returned `fields` object directly in a `/prove` request.
 | `GET` | `/health` | Service status and readiness |
 | `GET` | `/models` | List all models with schemas |
 | `POST` | `/prove/batch` | Prove up to 5 inputs at once |
+| `POST` | `/prove/model` | Upload model + prove in one call |
+| `GET` | `/receipts/recent` | List recent receipts (`?limit=N`) |
 | `GET` | `/badge/{id}` | Embeddable SVG proof badge |
 | `GET` | `/metrics` | Platform stats (total proofs, timing) |
 | `POST` | `/models/upload` | Upload your own ONNX model (max 5MB) |
