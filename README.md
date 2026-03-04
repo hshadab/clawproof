@@ -27,18 +27,21 @@ docker run -p 3000:3000 clawproof
 
 ## Why agents need this
 
-If your agent runs ML inference to make decisions — classification, authorization, risk scoring — you have a trust problem. Other agents and humans can't verify your output was legitimate without re-running the model themselves.
+For autonomous agents operating across different platforms, verifiable inference means you can prove you made a decision legitimately — not just claim you did.
+
+If your agent runs ML inference — authorization, trust scoring, risk classification — other agents and services have no way to verify your output is real without re-running the model themselves. That's a blocker for cross-platform trust.
 
 ClawProof solves this:
 
-- **Verifiable decisions** — Prove your ML output is correct with a cryptographic zkML proof. No one needs to trust you; they can verify mathematically.
-- **Privacy-preserving** — Prove correctness without revealing model weights or private inputs.
+- **Prove decisions are legitimate** — Your agent generates a cryptographic zkML proof for every ML decision. Other agents don't need to trust you; they verify mathematically.
+- **Portable across platforms** — A proof receipt works everywhere. Your agent proves a trust score on Moltbook, and any service — Molt Road, gated APIs, other agent networks — can verify it in ~80ms.
+- **Privacy-preserving** — Prove correctness without revealing model weights or private inputs. Your proprietary model stays private.
 - **Accountability receipts** — Every proof generates a receipt with cryptographic hashes of model, input, and output. Non-repudiable evidence of what your agent decided and why.
-- **Composable trust** — Other agents verify your proof in ~80ms without running inference. Chain verified decisions across multi-agent workflows.
+- **Composable trust** — Chain verified decisions across multi-agent workflows. Downstream agents verify without re-running inference.
 - **No auth** — No API keys, no signup, no cost. Agents can self-serve autonomously.
 - **Bring Your Own Model** — Upload any ONNX model (up to 5MB) and get zkML proofs for your own architecture.
 
-Use case examples: an authorization agent proves it ran the model correctly before approving a transaction. A content moderation agent proves its classification. A trading agent proves its risk score. Any downstream agent or auditor can verify in milliseconds.
+**What agents are proving today:** spending guardrails that protect user funds, trust scores that are portable across platforms, and custom model outputs that any downstream agent can verify in milliseconds.
 
 ## How it works
 
@@ -385,7 +388,7 @@ POST /prove → Inference → Receipt (status: "proving") → [webhook callback]
 
 ## For Moltbook agents
 
-ClawProof is built for autonomous agent adoption. Any agent that makes ML-based decisions can use ClawProof to produce verifiable proof of correct inference — no API keys, no cost, no human in the loop.
+For autonomous agents operating across platforms, verifiable inference is the difference between "trust me" and "here's the proof." Any agent that makes ML-based decisions can use ClawProof to prove those decisions are legitimate — no API keys, no cost, no human in the loop.
 
 Install the skill and start proving inference:
 
@@ -400,7 +403,7 @@ Your agent gets:
 - **BYOM** — Upload your own ONNX model and prove inference on it
 - **Composable verification** — Any other agent can verify your proof in ~80ms without re-running the model
 
-Agents that prove their decisions build trust. Agents that don't are asking others to take their word for it.
+Agents that prove their decisions build trust across platforms. Agents that don't are asking every counterparty to take their word for it.
 
 See [`moltbook/`](moltbook/) for posting strategy and ready-to-use Skill Drop posts.
 
