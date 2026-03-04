@@ -313,11 +313,16 @@ pub async fn run_single_prove(
         .cloned()
         .unwrap_or_else(|| format!("class_{}", pred_idx));
 
-    let total: f64 = raw_output.iter().map(|&x| (x as f64).abs()).sum();
-    let confidence = if total > 0.0 {
-        (raw_output[pred_idx] as f64).abs() / total
-    } else {
-        0.0
+    // Softmax confidence: exp(x_i) / sum(exp(x_j)) with numerical stability
+    let confidence = {
+        let vals: Vec<f64> = raw_output.iter().map(|&x| x as f64).collect();
+        let max_val = vals.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        let exp_sum: f64 = vals.iter().map(|&v| (v - max_val).exp()).sum();
+        if exp_sum > 0.0 {
+            (vals[pred_idx] - max_val).exp() / exp_sum
+        } else {
+            0.0
+        }
     };
 
     // Compute hashes

@@ -1502,7 +1502,7 @@
             "format": "double",
             "minimum": 0,
             "maximum": 1,
-            "description": "Confidence score computed as |raw_output[predicted_class]| / sum(|raw_output|). Ranges from 0 to 1.",
+            "description": "Confidence score computed via softmax over the raw output vector. Ranges from 0 to 1.",
             "example": 0.7932960893854749
           }
         }
