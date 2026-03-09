@@ -266,8 +266,6 @@ curl https://clawproof.onrender.com/receipts/recent?limit=5
 |-------|------|-------|--------|-------|
 | `authorization` | Structured fields | 7 fields (budget, trust, amount, category, velocity, day, time) | AUTHORIZED / DENIED | 2^14 |
 | `agent_trust` | Structured fields | 7 fields (karma, account_age, follower_ratio, post_frequency, verification, content_similarity, interaction_type) | TRUSTED / SUSPICIOUS / REJECT | 2^14 |
-| `sentiment` | Text (TF-IDF) | News article text (512-dim TF-IDF vector) | BUSINESS / ENTERTAINMENT / POLITICS / SPORT / TECH | 2^14 |
-| `spam_detector` | Raw vector | 8-dimensional integer vector | CLASS_0 / CLASS_1 / CLASS_2 / CLASS_3 | 2^12 |
 
 ### Agent Trust Classifier
 

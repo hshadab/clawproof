@@ -4,6 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ClawProof: zkML for OpenClaw agents powered by Jolt Atlas</title>
+    <meta name="description" content="Generate cryptographic zero-knowledge proofs of ML inference. Prove your agent's decisions are legitimate — no API keys, no auth.">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="ClawProof: zkML Proof-as-a-Service">
+    <meta property="og:description" content="Generate cryptographic zero-knowledge proofs of ML inference. Prove your agent's decisions are legitimate — no API keys, no auth.">
+    <meta property="og:url" content="https://clawproof.onrender.com">
+    <meta property="og:site_name" content="ClawProof">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="ClawProof: zkML Proof-as-a-Service">
+    <meta name="twitter:description" content="Cryptographic proof of ML inference for agents. No API keys, no auth.">
     <style>
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -556,9 +565,6 @@ function toggleHow() {
 if (localStorage.getItem('cp-how-open')) {
     document.getElementById('how-it-works').classList.add('open');
 }
-
-// Models hidden from the playground (still accessible via API)
-const HIDDEN_MODELS = ['spam_detector'];
 
 // --- Tabs ---
 function switchTab(name) {
