@@ -389,7 +389,7 @@
             <h4>One-call proof (curl)</h4>
 <pre>curl -X POST https://clawproof.onrender.com/prove \
   -H "Content-Type: application/json" \
-  -d '{"model_id":"sentiment","input":{"text":"The stock market rallied today"}}'</pre>
+  -d '{"model_id":"authorization","input":{"fields":{"budget":13,"trust":3,"amount":4,"category":1,"velocity":1,"day":2,"time":0}}}'</pre>
 
             <h4>Look up a Moltbook agent &amp; prove trust</h4>
 <pre># Step 1: Fetch agent profile and get bucketed fields
@@ -417,8 +417,8 @@ curl -X POST https://clawproof.onrender.com/prove \
 
 from clawproof import ClawProof
 cp = ClawProof()
-receipt = cp.prove_and_wait("sentiment",
-    text="The stock market rallied today")
+receipt = cp.prove_and_wait("authorization",
+    fields={"budget":13,"trust":3,"amount":4,"category":1,"velocity":1,"day":2,"time":0})
 print(receipt.output.label)</pre>
 
             <h4>JavaScript SDK</h4>
@@ -426,8 +426,8 @@ print(receipt.output.label)</pre>
 
 import { ClawProof } from "clawproof";
 const cp = new ClawProof();
-const receipt = await cp.proveAndWait("sentiment", {
-  text: "The stock market rallied today"
+const receipt = await cp.proveAndWait("authorization", {
+  fields: { budget: 13, trust: 3, amount: 4, category: 1, velocity: 1, day: 2, time: 0 }
 });</pre>
 
             <h4>MCP (Claude Desktop)</h4>
@@ -692,7 +692,8 @@ async function init() {
 }
 
 function visibleModels() {
-    return models.filter(m => !HIDDEN_MODELS.includes(m.id));
+    const BUILTIN = ['authorization', 'agent_trust'];
+    return models.filter(m => BUILTIN.includes(m.id));
 }
 
 function renderModelCards() {
@@ -727,8 +728,6 @@ function selectModel(id) {
 }
 
 const MODEL_DEFAULTS = {
-    sentiment: { text: "The economy showed strong growth this quarter as tech stocks surged", desc: "A business news headline" },
-    spam_detector: { raw: [1, 0, 3, 2, 1, 0, 2, 1], desc: "A sample 8-dim feature vector" },
     authorization: { fields: { budget: 13, trust: 3, amount: 4, category: 1, velocity: 1, day: 2, time: 0 }, desc: "Mid-range purchase by a moderately trusted user" },
     agent_trust: { fields: { karma: 8, account_age: 5, follower_ratio: 3, post_frequency: 2, verification: 2, content_similarity: 0, interaction_type: 1 }, desc: "Verified agent with high karma commenting on a post" }
 };
