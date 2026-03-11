@@ -316,10 +316,10 @@
         <div class="section-title">Proof History</div>
         <table class="history-table">
             <thead>
-                <tr><th>Time</th><th>Model</th><th>Result</th><th>Confidence</th><th>Status</th><th>Prove Time</th></tr>
+                <tr><th>Time</th><th>Model</th><th>Result</th><th>Confidence</th><th>Status</th><th>Prove Time</th><th>Origin</th></tr>
             </thead>
             <tbody id="history-body">
-                <tr><td colspan="6" class="empty-state">Loading...</td></tr>
+                <tr><td colspan="7" class="empty-state">Loading...</td></tr>
             </tbody>
         </table>
 
@@ -595,7 +595,7 @@ async function loadDashboard() {
         // History table
         const tbody = document.getElementById('history-body');
         if (recent.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No proofs yet. Go to the Prove tab to generate one.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No proofs yet. Go to the Prove tab to generate one.</td></tr>';
         } else {
             tbody.innerHTML = recent.map(r => {
                 const time = new Date(r.created_at);
@@ -605,6 +605,7 @@ async function loadDashboard() {
                 const statusLabel = r.status === 'verified' ? 'Verified' : r.status === 'proving' ? 'Proving' : 'Failed';
                 const proveTime = r.prove_time_ms ? (r.prove_time_ms / 1000).toFixed(1) + 's' : '-';
                 const conf = (r.confidence * 100).toFixed(1) + '%';
+                const origin = r.geo_city && r.geo_country ? r.geo_city + ', ' + r.geo_country : r.geo_country ? r.geo_country : r.client_ip ? r.client_ip : '-';
                 return '<tr>' +
                     '<td style="font-size:0.75rem;color:var(--text2)">' + dateStr + ' ' + timeStr + '</td>' +
                     '<td style="font-family:var(--mono);font-size:0.75rem">' + r.model_name + '</td>' +
@@ -612,6 +613,7 @@ async function loadDashboard() {
                     '<td style="font-family:var(--mono);font-size:0.75rem">' + conf + '</td>' +
                     '<td><span class="dot ' + statusClass + '"></span><span class="status-text">' + statusLabel + '</span></td>' +
                     '<td style="font-family:var(--mono);font-size:0.75rem">' + proveTime + '</td>' +
+                    '<td style="font-size:0.75rem;color:var(--text2)">' + origin + '</td>' +
                     '</tr>';
             }).join('');
         }
@@ -635,7 +637,7 @@ async function loadDashboard() {
             breakdown.innerHTML = '';
         }
     } catch (e) {
-        document.getElementById('history-body').innerHTML = '<tr><td colspan="6" class="empty-state">Failed to load dashboard data.</td></tr>';
+        document.getElementById('history-body').innerHTML = '<tr><td colspan="7" class="empty-state">Failed to load dashboard data.</td></tr>';
     }
 }
 

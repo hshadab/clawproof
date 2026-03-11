@@ -1,10 +1,10 @@
 use axum::extract::{Multipart, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use serde::Serialize;
 use tracing::{error, info};
 
-use super::prove::{ErrorResponse, ProveInput, run_single_prove};
+use super::prove::{ErrorResponse, ProveInput, extract_client_ip, run_single_prove};
 use crate::crypto;
 use crate::models::{InputType, ModelDescriptor, ModelTomlOutput};
 use crate::state::{AppState, PreprocessingCache, Snark};
@@ -33,8 +33,14 @@ pub struct ProveModelResponse {
 ///   - `webhook_url`: HTTPS callback URL (optional)
 pub async fn prove_model(
     State(state): State<AppState>,
+    headers: HeaderMap,
     mut multipart: Multipart,
 ) -> Result<Json<ProveModelResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let client_ip = extract_client_ip(&headers);
+    let user_agent = headers
+        .get("user-agent")
+        .and_then(|v| v.to_str().ok())
+        .map(String::from);
     let mut model_bytes: Option<Vec<u8>> = None;
     let mut source_format = "onnx".to_string();
     let mut input_raw: Option<Vec<i32>> = None;
@@ -345,7 +351,7 @@ pub async fn prove_model(
         raw: Some(input_raw),
     };
 
-    let result = run_single_prove(&state, model_id.clone(), prove_input, webhook_url).await?;
+    let result = run_single_prove(&state, model_id.clone(), prove_input, webhook_url, client_ip, user_agent).await?;
 
     Ok(Json(ProveModelResponse {
         receipt_id: result.receipt_id,

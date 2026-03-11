@@ -1,5 +1,5 @@
 use axum::extract::State;
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use chrono::Utc;
 use onnx_tracer::{model, tensor::Tensor};
@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use tracing::{error, info};
 
 use crate::crypto;
+use crate::geo;
 use crate::input::{build_onehot_vector, build_tfidf_vector, build_token_index_vector};
 use crate::models::InputType;
 use crate::prover;
@@ -52,10 +53,31 @@ pub struct ErrorResponse {
 
 pub async fn prove(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(request): Json<ProveRequest>,
 ) -> Result<Json<ProveResponse>, (StatusCode, Json<ErrorResponse>)> {
-    run_single_prove(&state, request.model_id, request.input, request.webhook_url).await
+    let client_ip = extract_client_ip(&headers);
+    let user_agent = headers
+        .get("user-agent")
+        .and_then(|v| v.to_str().ok())
+        .map(String::from);
+    run_single_prove(&state, request.model_id, request.input, request.webhook_url, client_ip, user_agent).await
         .map(Json)
+}
+
+/// Extract client IP from X-Forwarded-For header (first entry) or fall back to other headers.
+pub fn extract_client_ip(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.split(',').next())
+        .map(|s| s.trim().to_string())
+        .or_else(|| {
+            headers
+                .get("x-real-ip")
+                .and_then(|v| v.to_str().ok())
+                .map(|s| s.trim().to_string())
+        })
 }
 
 pub async fn run_single_prove(
@@ -63,6 +85,8 @@ pub async fn run_single_prove(
     model_id: String,
     input: ProveInput,
     webhook_url: Option<String>,
+    client_ip: Option<String>,
+    user_agent: Option<String>,
 ) -> Result<ProveResponse, (StatusCode, Json<ErrorResponse>)> {
     // Validate webhook URL if provided
     if let Some(ref url) = webhook_url {
@@ -368,9 +392,27 @@ pub async fn run_single_prove(
         prove_time_ms: None,
         verify_time_ms: None,
         error: None,
+        client_ip: client_ip.clone(),
+        user_agent,
+        geo_city: None,
+        geo_country: None,
     };
 
     state.receipts.insert(receipt);
+
+    // Spawn async geo lookup (fire-and-forget)
+    if let Some(ref ip) = client_ip {
+        let http_client = state.http_client.clone();
+        let receipts = state.receipts.clone();
+        let ip = ip.clone();
+        let rid = receipt_id.clone();
+        tokio::spawn(async move {
+            let (city, country) = geo::lookup(&http_client, &ip).await;
+            if city.is_some() || country.is_some() {
+                receipts.update_geo(&rid, city, country);
+            }
+        });
+    }
 
     info!(
         "[clawproof] Receipt {} created, spawning proof for model {}",

@@ -1,5 +1,6 @@
 mod config;
 mod crypto;
+mod geo;
 mod handlers;
 mod input;
 mod models;

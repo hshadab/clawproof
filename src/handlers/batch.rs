@@ -1,10 +1,10 @@
 use axum::extract::State;
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use serde::{Deserialize, Serialize};
 
 use super::prove::{ErrorResponse, ProveInput, ProveResponse};
-use crate::handlers::prove::run_single_prove;
+use crate::handlers::prove::{extract_client_ip, run_single_prove};
 use crate::state::AppState;
 
 #[derive(Deserialize)]
@@ -28,8 +28,15 @@ pub struct BatchResponse {
 
 pub async fn batch_prove(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(request): Json<BatchRequest>,
 ) -> Result<Json<BatchResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let client_ip = extract_client_ip(&headers);
+    let user_agent = headers
+        .get("user-agent")
+        .and_then(|v| v.to_str().ok())
+        .map(String::from);
+
     if request.requests.is_empty() {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -52,7 +59,7 @@ pub async fn batch_prove(
 
     let mut receipts = Vec::new();
     for item in request.requests {
-        let result = run_single_prove(&state, item.model_id, item.input, item.webhook_url).await?;
+        let result = run_single_prove(&state, item.model_id, item.input, item.webhook_url, client_ip.clone(), user_agent.clone()).await?;
         receipts.push(result);
     }
 

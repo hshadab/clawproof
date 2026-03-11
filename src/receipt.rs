@@ -65,6 +65,16 @@ pub struct Receipt {
 
     // Error (if failed)
     pub error: Option<String>,
+
+    // Caller identification
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_ip: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_agent: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub geo_city: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub geo_country: Option<String>,
 }
 
 pub struct SqliteStore {
@@ -109,6 +119,39 @@ impl SqliteStore {
             CREATE INDEX IF NOT EXISTS idx_receipts_model_id ON receipts(model_id);
             CREATE INDEX IF NOT EXISTS idx_receipts_created_at ON receipts(created_at DESC);"
         )?;
+
+        // Idempotent migrations: add caller-identification columns
+        for col in &[
+            "client_ip TEXT",
+            "user_agent TEXT",
+            "geo_city TEXT",
+            "geo_country TEXT",
+        ] {
+            let sql = format!("ALTER TABLE receipts ADD COLUMN {}", col);
+            // Ignore "duplicate column" errors — column already exists
+            let _ = conn.execute_batch(&sql);
+        }
+
+        // Backfill known caller data from Render logs (only touches rows with NULL client_ip)
+        let backfill = [
+            // 2026-02-27 receipt
+            ("2026-02-27", "67.85.90.117", "Chrome/145", "New York City", "United States"),
+            // 2026-03-04 receipt
+            ("2026-03-04", "67.85.90.117", "curl/8.5.0", "New York City", "United States"),
+            // 2026-03-08 (5 receipts)
+            ("2026-03-08", "133.175.252.192", "curl/8.7.1", "Kyoto", "Japan"),
+            // 2026-03-10 receipt
+            ("2026-03-10", "47.79.255.119", "PowerShell/5.1 zh-CN", "Singapore", "Singapore"),
+        ];
+        for (date, ip, ua, city, country) in &backfill {
+            let sql = "UPDATE receipts SET client_ip = ?1, user_agent = ?2, geo_city = ?3, geo_country = ?4 WHERE created_at LIKE ?5 AND client_ip IS NULL";
+            let date_prefix = format!("{}%", date);
+            let _ = conn.execute(
+                sql,
+                rusqlite::params![ip, ua, city, country, date_prefix],
+            );
+        }
+
         Ok(())
     }
 
@@ -116,7 +159,7 @@ impl SqliteStore {
         let conn = self.conn.lock().expect("SQLite connection lock poisoned");
         let output_json = serde_json::to_string(&receipt.output).unwrap_or_default();
         if let Err(e) = conn.execute(
-            "INSERT OR REPLACE INTO receipts (id, model_id, model_name, status, created_at, completed_at, model_hash, input_hash, output_hash, output_json, proof_hash, proof_size, prove_time_ms, verify_time_ms, error) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+            "INSERT OR REPLACE INTO receipts (id, model_id, model_name, status, created_at, completed_at, model_hash, input_hash, output_hash, output_json, proof_hash, proof_size, prove_time_ms, verify_time_ms, error, client_ip, user_agent, geo_city, geo_country) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
             rusqlite::params![
                 receipt.id,
                 receipt.model_id,
@@ -133,6 +176,10 @@ impl SqliteStore {
                 receipt.prove_time_ms.map(|t| t as i64),
                 receipt.verify_time_ms.map(|t| t as i64),
                 receipt.error,
+                receipt.client_ip,
+                receipt.user_agent,
+                receipt.geo_city,
+                receipt.geo_country,
             ],
         ) {
             error!("[clawproof] SQLite insert failed: {:?}", e);
@@ -142,7 +189,7 @@ impl SqliteStore {
     pub fn get(&self, id: &str) -> Option<Receipt> {
         let conn = self.conn.lock().expect("SQLite connection lock poisoned");
         conn.query_row(
-            "SELECT id, model_id, model_name, status, created_at, completed_at, model_hash, input_hash, output_hash, output_json, proof_hash, proof_size, prove_time_ms, verify_time_ms, error FROM receipts WHERE id = ?1",
+            "SELECT id, model_id, model_name, status, created_at, completed_at, model_hash, input_hash, output_hash, output_json, proof_hash, proof_size, prove_time_ms, verify_time_ms, error, client_ip, user_agent, geo_city, geo_country FROM receipts WHERE id = ?1",
             rusqlite::params![id],
             |row| {
                 let status_str: String = row.get(3)?;
@@ -180,6 +227,10 @@ impl SqliteStore {
                     prove_time_ms: prove_time.map(|t| t as u128),
                     verify_time_ms: verify_time.map(|t| t as u128),
                     error: row.get(14)?,
+                    client_ip: row.get(15)?,
+                    user_agent: row.get(16)?,
+                    geo_city: row.get(17)?,
+                    geo_country: row.get(18)?,
                 })
             },
         )
@@ -231,7 +282,7 @@ impl SqliteStore {
     pub fn list_recent(&self, limit: u64) -> Vec<ReceiptSummary> {
         let conn = self.conn.lock().expect("SQLite connection lock poisoned");
         let mut stmt = match conn.prepare(
-            "SELECT id, model_id, model_name, status, created_at, output_json, prove_time_ms, verify_time_ms FROM receipts ORDER BY created_at DESC LIMIT ?1",
+            "SELECT id, model_id, model_name, status, created_at, output_json, prove_time_ms, verify_time_ms, client_ip, geo_city, geo_country FROM receipts ORDER BY created_at DESC LIMIT ?1",
         ) {
             Ok(s) => s,
             Err(e) => {
@@ -266,6 +317,9 @@ impl SqliteStore {
                 created_at: DateTime::parse_from_rfc3339(&created_str)
                     .map(|dt| dt.with_timezone(&Utc))
                     .unwrap_or_else(|_| Utc::now()),
+                client_ip: row.get(8)?,
+                geo_city: row.get(9)?,
+                geo_country: row.get(10)?,
             })
         });
 
@@ -275,6 +329,16 @@ impl SqliteStore {
                 error!("[clawproof] list_recent rows failed: {:?}", e);
                 vec![]
             }
+        }
+    }
+
+    pub fn update_geo(&self, id: &str, city: Option<String>, country: Option<String>) {
+        let conn = self.conn.lock().expect("SQLite connection lock poisoned");
+        if let Err(e) = conn.execute(
+            "UPDATE receipts SET geo_city = ?1, geo_country = ?2 WHERE id = ?3",
+            rusqlite::params![city, country, id],
+        ) {
+            error!("[clawproof] SQLite update_geo failed for {}: {:?}", id, e);
         }
     }
 }
@@ -298,6 +362,12 @@ pub struct ReceiptSummary {
     pub prove_time_ms: Option<u128>,
     pub verify_time_ms: Option<u128>,
     pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_ip: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub geo_city: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub geo_country: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Default)]
@@ -386,5 +456,19 @@ impl ReceiptStore {
 
     pub fn list_recent(&self, limit: u64) -> Vec<ReceiptSummary> {
         self.db.list_recent(limit)
+    }
+
+    pub fn update_geo(&self, id: &str, city: Option<String>, country: Option<String>) {
+        // Update hot cache
+        if let Some(mut entry) = self.cache.get_mut(id) {
+            entry.value_mut().geo_city = city.clone();
+            entry.value_mut().geo_country = country.clone();
+        }
+        // Update SQLite
+        let db = self.db.clone();
+        let id = id.to_string();
+        drop(tokio::task::spawn_blocking(move || {
+            db.update_geo(&id, city, country);
+        }));
     }
 }
